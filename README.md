@@ -20,3 +20,7 @@ To run an example, navigate to it's directory, then go run the test.go file. For
 $ cd pixelui_examples
 $ go run test.go
 ```
+
+## Current Expected state
+This is where we are currently...
+![Current State](https://github.com/dusk125/pixelui_examples/blob/master/screenshots/current_state.png)
