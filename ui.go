@@ -46,6 +46,7 @@ func NewUI(context *imgui.Context) *UI {
 // NewFrame Call this at the beginning of the frame to tell the UI that the frame has started
 func (ui *UI) NewFrame() {
 	ui.timer = time.Now()
+	imgui.NewFrame()
 }
 
 // update Handles general update type things and handle inputs. Called from ui.Draw.
@@ -72,11 +73,14 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 	imgui.Render()
 	data := imgui.RenderedDrawData()
 
+	// win.SetColorMask(pixel.Alpha(0))
+
 	// In each command, there is a vertex buffer that holds all of the vertices to draw;
 	// 	there's also an index buffer which stores the indices into the vertex buffer that should
 	//	be draw together. The vertex buffer is shared between multiple commands.
-	vertexSize, posOffset, _, colOffset := imgui.VertexBufferLayout()
-	// vertexSize, posOffset, uvOffset, colOffset := imgui.VertexBufferLayout()
+	// vertexSize, posOffset, _, colOffset := imgui.VertexBufferLayout()
+	vertexSize, posOffset, uvOffset, colOffset := imgui.VertexBufferLayout()
+	triIndex := 0
 	for _, cmds := range data.CommandLists() {
 		start, _ := cmds.VertexBuffer()
 		idxStart, _ := cmds.IndexBuffer()
@@ -85,29 +89,51 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 			if cmd.HasUserCallback() {
 				cmd.CallUserCallback(cmds)
 			} else {
+				// rect := cmd.ClipRect()
+				// rect := imguiRectToPixelRect(cmd.ClipRect())
 				ui.tris.SetLen(cmd.ElementCount() + ui.tris.Len())
-				jndex := 0
-				for i := 0; i < cmd.ElementCount(); i++ {
-					idx := unsafe.Pointer(uintptr(idxStart) + uintptr(i*imgui.IndexBufferLayout()))
-					index := *(*C.ushort)(idx)
-					ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
-					pos := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
-					// uv := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(uvOffset)))
-					col := (*uint32)(unsafe.Pointer(uintptr(ptr) + uintptr(colOffset)))
+				for i := 0; i < cmd.ElementCount(); i += 3 {
+					tmp := pixel.MakeTrianglesData(3)
+					shouldRender := true
+					for j := 0; j < 3; j++ {
+						idx := unsafe.Pointer(uintptr(idxStart) + uintptr((i+j)*imgui.IndexBufferLayout()))
+						index := *(*C.ushort)(idx)
+						ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
+						pos := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
+						uv := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(uvOffset)))
+						col := (*uint32)(unsafe.Pointer(uintptr(ptr) + uintptr(colOffset)))
 
-					position := imguiVecToPixelVec(*pos)
-					color := imguiColorToPixelColor(*col)
-					// uuvv := imguiVecToPixelVec(*uv)
+						position := imguiVecToPixelVec(*pos)
+						color := imguiColorToPixelColor(*col)
+						uuvv := imguiVecToPixelVec(*uv)
 
-					(*ui.tris)[jndex].Position = position
-					// (*ui.tris)[jndex].Picture = uuvv
-					(*ui.tris)[jndex].Color = color
-					(*ui.tris)[jndex].Intensity = 1.0
-					jndex++
+						// clip := pixel.R(float64(rect.X), float64(rect.Y), float64(rect.Z), float64(rect.W))
+						// clip := pixel.R(float64(rect.X), float64(1080-rect.W), float64(rect.Z-rect.X), float64(rect.W-rect.Y))
+
+						// if clip.Contains(position) {
+						// 	shouldRender = false
+						// 	break
+						// }
+
+						_ = uuvv
+
+						(*tmp)[j].Position = position
+						// (*tmp)[j].Picture = uuvv
+						(*tmp)[j].Color = color
+						(*tmp)[j].Intensity = 0.0
+					}
+					if shouldRender {
+						for j := 0; j < 3; j++ {
+							(*ui.tris)[triIndex].Position = (*tmp)[j].Position
+							// (*ui.tris)[triIndex].Picture = (*tmp)[j].Picture
+							(*ui.tris)[triIndex].Color = (*tmp)[j].Color
+							(*ui.tris)[triIndex].Intensity = (*tmp)[j].Intensity
+							triIndex++
+						}
+					}
 				}
 			}
 		}
-
 	}
 	ui.batch.Dirty()
 
@@ -121,15 +147,25 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 
 // imguiColorToPixelColor Converts the imgui color to a Pixel color
 func imguiColorToPixelColor(c uint32) pixel.RGBA {
+	// ABGR -> RGBA
 	return pixel.ToRGBA(color.RGBA{
-		R: uint8((c >> 24) & 0xFF),
-		G: uint8((c >> 16) & 0xFF),
-		B: uint8((c >> 8) & 0xFF),
-		A: uint8(c & 0xFF),
+		// R: uint8((c >> 24) & 0xFF),
+		// G: uint8((c >> 16) & 0xFF),
+		// B: uint8((c >> 8) & 0xFF),
+		// A: uint8(c & 0xFF),
+		A: uint8((c >> 24) & 0xFF),
+		B: uint8((c >> 16) & 0xFF),
+		G: uint8((c >> 8) & 0xFF),
+		R: uint8(c & 0xFF),
 	})
 }
 
 // imguiVecToPixelVec Converts the imgui vector to a Pixel vector
 func imguiVecToPixelVec(v imgui.Vec2) pixel.Vec {
 	return pixel.V(float64(v.X), float64(v.Y))
+}
+
+// imguiRectToPixelRect Converts the imgui rect to a Pixel rect
+func imguiRectToPixelRect(r imgui.Vec4) pixel.Rect {
+	return pixel.R(float64(r.X), float64(r.Y), float64(r.X+r.Z), float64(r.Y+r.W))
 }
