@@ -80,8 +80,9 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 	//	be draw together. The vertex buffer is shared between multiple commands.
 	// vertexSize, posOffset, _, colOffset := imgui.VertexBufferLayout()
 	vertexSize, posOffset, uvOffset, colOffset := imgui.VertexBufferLayout()
-	triIndex := 0
+	indexSize := imgui.IndexBufferLayout()
 	for _, cmds := range data.CommandLists() {
+		var indexBufferOffset uintptr
 		start, _ := cmds.VertexBuffer()
 		idxStart, _ := cmds.IndexBuffer()
 
@@ -89,14 +90,16 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 			if cmd.HasUserCallback() {
 				cmd.CallUserCallback(cmds)
 			} else {
-				// rect := cmd.ClipRect()
-				// rect := imguiRectToPixelRect(cmd.ClipRect())
-				ui.tris.SetLen(cmd.ElementCount() + ui.tris.Len())
+				triIndex := 0
+				win.SetMatrix(matrix)
+
+				ui.tris.SetLen(cmd.ElementCount())
+
 				for i := 0; i < cmd.ElementCount(); i += 3 {
 					tmp := pixel.MakeTrianglesData(3)
 					shouldRender := true
 					for j := 0; j < 3; j++ {
-						idx := unsafe.Pointer(uintptr(idxStart) + uintptr((i+j)*imgui.IndexBufferLayout()))
+						idx := unsafe.Pointer(uintptr(idxStart) + indexBufferOffset)
 						index := *(*C.ushort)(idx)
 						ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
 						pos := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
@@ -107,42 +110,34 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 						color := imguiColorToPixelColor(*col)
 						uuvv := imguiVecToPixelVec(*uv)
 
-						// clip := pixel.R(float64(rect.X), float64(rect.Y), float64(rect.Z), float64(rect.W))
-						// clip := pixel.R(float64(rect.X), float64(1080-rect.W), float64(rect.Z-rect.X), float64(rect.W-rect.Y))
-
-						// if clip.Contains(position) {
-						// 	shouldRender = false
-						// 	break
-						// }
-
 						_ = uuvv
 
 						(*tmp)[j].Position = position
 						// (*tmp)[j].Picture = uuvv
 						(*tmp)[j].Color = color
 						(*tmp)[j].Intensity = 0.0
+
+						indexBufferOffset += uintptr(indexSize)
 					}
 					if shouldRender {
 						for j := 0; j < 3; j++ {
 							(*ui.tris)[triIndex].Position = (*tmp)[j].Position
-							// (*ui.tris)[triIndex].Picture = (*tmp)[j].Picture
+							(*ui.tris)[triIndex].Picture = (*tmp)[j].Picture
 							(*ui.tris)[triIndex].Color = (*tmp)[j].Color
 							(*ui.tris)[triIndex].Intensity = (*tmp)[j].Intensity
 							triIndex++
 						}
 					}
+
 				}
+
+				ui.batch.Dirty()
+				ui.batch.Draw(win)
+				ui.tris.SetLen(0)
+				win.SetMatrix(pixel.IM)
 			}
 		}
 	}
-	ui.batch.Dirty()
-
-	win.SetMatrix(matrix)
-
-	ui.batch.Draw(win)
-	ui.tris.SetLen(0)
-
-	win.SetMatrix(pixel.IM)
 }
 
 // imguiColorToPixelColor Converts the imgui color to a Pixel color
