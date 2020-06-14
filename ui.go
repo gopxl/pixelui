@@ -40,6 +40,8 @@ func NewUI(context *imgui.Context) *UI {
 	ui.fonts.AddFontDefault()
 	ui.fonts.TextureDataAlpha8()
 
+	ui.setKeyMapping()
+
 	return ui
 }
 
@@ -57,8 +59,8 @@ func (ui *UI) update(win *pixelgl.Window, matrix pixel.Matrix) {
 	ui.io.SetMousePosition(imgui.Vec2{X: float32(mouse.X), Y: float32(mouse.Y)})
 
 	ui.io.SetMouseButtonDown(0, win.Pressed(pixelgl.MouseButtonLeft))
-	ui.io.SetMouseButtonDown(1, win.Pressed(pixelgl.MouseButtonMiddle))
-	ui.io.SetMouseButtonDown(2, win.Pressed(pixelgl.MouseButtonRight))
+	ui.io.SetMouseButtonDown(1, win.Pressed(pixelgl.MouseButtonRight))
+	ui.io.SetMouseButtonDown(2, win.Pressed(pixelgl.MouseButtonMiddle))
 	ui.io.AddMouseWheelDelta(float32(win.MouseScroll().X), float32(win.MouseScroll().Y))
 }
 
@@ -72,8 +74,6 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 	// Tell imgui to render and get the resulting draw data
 	imgui.Render()
 	data := imgui.RenderedDrawData()
-
-	// win.SetColorMask(pixel.Alpha(0))
 
 	// In each command, there is a vertex buffer that holds all of the vertices to draw;
 	// 	there's also an index buffer which stores the indices into the vertex buffer that should
@@ -144,10 +144,6 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 func imguiColorToPixelColor(c uint32) pixel.RGBA {
 	// ABGR -> RGBA
 	return pixel.ToRGBA(color.RGBA{
-		// R: uint8((c >> 24) & 0xFF),
-		// G: uint8((c >> 16) & 0xFF),
-		// B: uint8((c >> 8) & 0xFF),
-		// A: uint8(c & 0xFF),
 		A: uint8((c >> 24) & 0xFF),
 		B: uint8((c >> 16) & 0xFF),
 		G: uint8((c >> 8) & 0xFF),
@@ -163,4 +159,35 @@ func imguiVecToPixelVec(v imgui.Vec2) pixel.Vec {
 // imguiRectToPixelRect Converts the imgui rect to a Pixel rect
 func imguiRectToPixelRect(r imgui.Vec4) pixel.Rect {
 	return pixel.R(float64(r.X), float64(r.Y), float64(r.X+r.Z), float64(r.Y+r.W))
+}
+
+func (ui *UI) setKeyMapping() {
+	keys := map[int]pixelgl.Button{
+		imgui.KeyTab:        pixelgl.KeyTab,
+		imgui.KeyLeftArrow:  pixelgl.KeyLeft,
+		imgui.KeyRightArrow: pixelgl.KeyRight,
+		imgui.KeyUpArrow:    pixelgl.KeyUp,
+		imgui.KeyDownArrow:  pixelgl.KeyDown,
+		imgui.KeyPageUp:     pixelgl.KeyPageUp,
+		imgui.KeyPageDown:   pixelgl.KeyPageDown,
+		imgui.KeyHome:       pixelgl.KeyHome,
+		imgui.KeyEnd:        pixelgl.KeyEnd,
+		imgui.KeyInsert:     pixelgl.KeyInsert,
+		imgui.KeyDelete:     pixelgl.KeyDelete,
+		imgui.KeyBackspace:  pixelgl.KeyBackspace,
+		imgui.KeySpace:      pixelgl.KeySpace,
+		imgui.KeyEnter:      pixelgl.KeyEnter,
+		imgui.KeyEscape:     pixelgl.KeyEscape,
+		imgui.KeyA:          pixelgl.KeyA,
+		imgui.KeyC:          pixelgl.KeyC,
+		imgui.KeyV:          pixelgl.KeyV,
+		imgui.KeyX:          pixelgl.KeyX,
+		imgui.KeyY:          pixelgl.KeyY,
+		imgui.KeyZ:          pixelgl.KeyZ,
+	}
+
+	// Keyboard mapping. ImGui will use those indices to peek into the io.KeysDown[] array.
+	for imguiKey, nativeKey := range keys {
+		ui.io.KeyMap(imguiKey, int(nativeKey))
+	}
 }
