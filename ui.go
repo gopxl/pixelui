@@ -25,7 +25,7 @@ type UI struct {
 }
 
 // NewUI Creates the UI and setups up its internal structures
-func NewUI(context *imgui.Context) *UI {
+func NewUI(context *imgui.Context, win *pixelgl.Window) *UI {
 	ui := &UI{
 		context: context,
 	}
@@ -34,7 +34,7 @@ func NewUI(context *imgui.Context) *UI {
 	ui.batch = pixel.NewBatch(ui.tris, nil)
 
 	ui.io = imgui.CurrentIO()
-	ui.io.SetDisplaySize(imgui.Vec2{X: 1920, Y: 1080})
+	ui.io.SetDisplaySize(pixelVecToimguiVec(win.Bounds().Size()))
 
 	ui.fonts = ui.io.Fonts()
 	ui.fonts.AddFontDefault()
@@ -100,6 +100,7 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 					shouldRender := true
 					for j := 0; j < 3; j++ {
 						idx := unsafe.Pointer(uintptr(idxStart) + indexBufferOffset)
+						indexBufferOffset += uintptr(indexSize)
 						index := *(*C.ushort)(idx)
 						ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
 						pos := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
@@ -116,8 +117,6 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 						// (*tmp)[j].Picture = uuvv
 						(*tmp)[j].Color = color
 						(*tmp)[j].Intensity = 0.0
-
-						indexBufferOffset += uintptr(indexSize)
 					}
 					if shouldRender {
 						for j := 0; j < 3; j++ {
@@ -159,6 +158,10 @@ func imguiVecToPixelVec(v imgui.Vec2) pixel.Vec {
 // imguiRectToPixelRect Converts the imgui rect to a Pixel rect
 func imguiRectToPixelRect(r imgui.Vec4) pixel.Rect {
 	return pixel.R(float64(r.X), float64(r.Y), float64(r.X+r.Z), float64(r.Y+r.W))
+}
+
+func pixelVecToimguiVec(v pixel.Vec) imgui.Vec2 {
+	return imgui.Vec2{X: float32(v.X), Y: float32(v.Y)}
 }
 
 func (ui *UI) setKeyMapping() {
