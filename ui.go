@@ -22,6 +22,7 @@ type UI struct {
 	timer   time.Time
 	pic     *pixel.PictureData
 	picture pixel.TargetPicture
+	canvas  *pixelgl.Canvas
 }
 
 // NewUI Creates the UI and setups up its internal structures
@@ -47,7 +48,25 @@ func NewUI(context *imgui.Context, win *pixelgl.Window) *UI {
 		}
 	}
 
-	ui.picture = win.Canvas().MakePicture(ui.pic)
+	ui.canvas = pixelgl.NewCanvas(win.Canvas().Bounds())
+	ui.canvas.SetComposeMethod(pixel.ComposeOver)
+	ui.canvas.SetFragmentShader(`
+	#version 330 core
+	in vec4  vColor;
+	in vec2  vTexCoords;
+	in float vIntensity;
+
+	out vec4 fragColor;
+
+	uniform vec4 uColorMask;
+	uniform vec4 uTexBounds;
+	uniform sampler2D uTexture;
+	void main() {
+		fragColor *= vColor * texture(uTexture, vTexCoords).a;
+	}
+	`)
+
+	ui.picture = ui.canvas.MakePicture(ui.pic)
 	ui.setKeyMapping()
 
 	return ui
@@ -57,6 +76,7 @@ func NewUI(context *imgui.Context, win *pixelgl.Window) *UI {
 func (ui *UI) NewFrame() {
 	ui.timer = time.Now()
 	imgui.NewFrame()
+	ui.canvas.Clear(pixel.Alpha(0))
 }
 
 // update Handles general update type things and handle inputs. Called from ui.Draw.
@@ -74,7 +94,6 @@ func (ui *UI) update(win *pixelgl.Window, matrix pixel.Matrix) {
 
 // Draw Draws the imgui UI to the Pixel Window
 func (ui *UI) Draw(win *pixelgl.Window) {
-	win.SetComposeMethod(pixel.ComposeOver)
 	// imgui draws things from top-left as 0,0 where Pixel draws from bottom-left as 0,0,
 	//	for drawing and handling inputs, we need to "flip" imgui.
 	matrix := pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
@@ -121,7 +140,8 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 					indexBufferOffset += uintptr(indexSize)
 				}
 
-				ui.picture.Draw(win.Canvas().MakeTriangles(tris))
+				ui.picture.Draw(ui.canvas.MakeTriangles(tris))
+				ui.canvas.Draw(win, pixel.IM.Moved(ui.canvas.Bounds().Center()))
 
 				win.SetMatrix(pixel.IM)
 			}
