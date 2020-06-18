@@ -141,12 +141,12 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				}
 
 				ui.picture.Draw(ui.canvas.MakeTriangles(tris))
-				ui.canvas.Draw(win, pixel.IM.Moved(ui.canvas.Bounds().Center()))
-
-				win.SetMatrix(pixel.IM)
 			}
 		}
 	}
+	ui.canvas.Draw(win, pixel.IM.Moved(ui.canvas.Bounds().Center()))
+
+	win.SetMatrix(pixel.IM)
 }
 
 // imguiColorToPixelColor Converts the imgui color to a Pixel color
