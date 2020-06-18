@@ -16,12 +16,12 @@ import (
 
 // UI Stores the state of the pixelui UI
 type UI struct {
-	tris    *pixel.TrianglesData
-	batch   *pixel.Batch
 	context *imgui.Context
 	io      imgui.IO
 	fonts   imgui.FontAtlas
 	timer   time.Time
+	pic     *pixel.PictureData
+	picture pixel.TargetPicture
 }
 
 // NewUI Creates the UI and setups up its internal structures
@@ -30,16 +30,24 @@ func NewUI(context *imgui.Context, win *pixelgl.Window) *UI {
 		context: context,
 	}
 
-	ui.tris = pixel.MakeTrianglesData(0)
-	ui.batch = pixel.NewBatch(ui.tris, nil)
-
 	ui.io = imgui.CurrentIO()
 	ui.io.SetDisplaySize(pixelVecToimguiVec(win.Bounds().Size()))
 
 	ui.fonts = ui.io.Fonts()
 	ui.fonts.AddFontDefault()
-	ui.fonts.TextureDataAlpha8()
+	f := ui.fonts.TextureDataAlpha8()
 
+	ui.pic = pixel.MakePictureData(pixel.R(0, 0, float64(f.Width), float64(f.Height)))
+
+	for y := 0; y < f.Height; y++ {
+		for x := 0; x < f.Width; x++ {
+			i := y*f.Width + x
+			ptr := (*uint8)(unsafe.Pointer(uintptr(f.Pixels) + uintptr(i)))
+			ui.pic.Pix[i] = color.RGBA{R: 0, G: 0, B: 0, A: *ptr}
+		}
+	}
+
+	ui.picture = win.Canvas().MakePicture(ui.pic)
 	ui.setKeyMapping()
 
 	return ui
@@ -66,6 +74,7 @@ func (ui *UI) update(win *pixelgl.Window, matrix pixel.Matrix) {
 
 // Draw Draws the imgui UI to the Pixel Window
 func (ui *UI) Draw(win *pixelgl.Window) {
+	win.SetComposeMethod(pixel.ComposeOver)
 	// imgui draws things from top-left as 0,0 where Pixel draws from bottom-left as 0,0,
 	//	for drawing and handling inputs, we need to "flip" imgui.
 	matrix := pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
@@ -78,7 +87,6 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 	// In each command, there is a vertex buffer that holds all of the vertices to draw;
 	// 	there's also an index buffer which stores the indices into the vertex buffer that should
 	//	be draw together. The vertex buffer is shared between multiple commands.
-	// vertexSize, posOffset, _, colOffset := imgui.VertexBufferLayout()
 	vertexSize, posOffset, uvOffset, colOffset := imgui.VertexBufferLayout()
 	indexSize := imgui.IndexBufferLayout()
 	for _, cmds := range data.CommandLists() {
@@ -90,49 +98,31 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 			if cmd.HasUserCallback() {
 				cmd.CallUserCallback(cmds)
 			} else {
-				triIndex := 0
 				win.SetMatrix(matrix)
 
-				ui.tris.SetLen(cmd.ElementCount())
+				tris := pixel.MakeTrianglesData(cmd.ElementCount())
 
-				for i := 0; i < cmd.ElementCount(); i += 3 {
-					tmp := pixel.MakeTrianglesData(3)
-					shouldRender := true
-					for j := 0; j < 3; j++ {
-						idx := unsafe.Pointer(uintptr(idxStart) + indexBufferOffset)
-						indexBufferOffset += uintptr(indexSize)
-						index := *(*C.ushort)(idx)
-						ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
-						pos := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
-						uv := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(uvOffset)))
-						col := (*uint32)(unsafe.Pointer(uintptr(ptr) + uintptr(colOffset)))
+				for i := 0; i < cmd.ElementCount(); i++ {
+					idx := unsafe.Pointer(uintptr(idxStart) + indexBufferOffset)
+					index := *(*C.ushort)(idx)
+					ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
+					pos := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
+					uv := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(uvOffset)))
+					col := (*uint32)(unsafe.Pointer(uintptr(ptr) + uintptr(colOffset)))
 
-						position := imguiVecToPixelVec(*pos)
-						color := imguiColorToPixelColor(*col)
-						uuvv := imguiVecToPixelVec(*uv)
+					position := imguiVecToPixelVec(*pos)
+					color := imguiColorToPixelColor(*col)
+					uuvv := imguiVecToPixelVec(*uv)
 
-						_ = uuvv
-
-						(*tmp)[j].Position = position
-						// (*tmp)[j].Picture = uuvv
-						(*tmp)[j].Color = color
-						(*tmp)[j].Intensity = 0.0
-					}
-					if shouldRender {
-						for j := 0; j < 3; j++ {
-							(*ui.tris)[triIndex].Position = (*tmp)[j].Position
-							(*ui.tris)[triIndex].Picture = (*tmp)[j].Picture
-							(*ui.tris)[triIndex].Color = (*tmp)[j].Color
-							(*ui.tris)[triIndex].Intensity = (*tmp)[j].Intensity
-							triIndex++
-						}
-					}
-
+					(*tris)[i].Position = position
+					(*tris)[i].Picture = uuvv
+					(*tris)[i].Color = pixel.ToRGBA(color)
+					(*tris)[i].Intensity = 0
+					indexBufferOffset += uintptr(indexSize)
 				}
 
-				ui.batch.Dirty()
-				ui.batch.Draw(win)
-				ui.tris.SetLen(0)
+				ui.picture.Draw(win.Canvas().MakeTriangles(tris))
+
 				win.SetMatrix(pixel.IM)
 			}
 		}
@@ -140,14 +130,14 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 }
 
 // imguiColorToPixelColor Converts the imgui color to a Pixel color
-func imguiColorToPixelColor(c uint32) pixel.RGBA {
+func imguiColorToPixelColor(c uint32) color.RGBA {
 	// ABGR -> RGBA
-	return pixel.ToRGBA(color.RGBA{
+	return color.RGBA{
 		A: uint8((c >> 24) & 0xFF),
 		B: uint8((c >> 16) & 0xFF),
 		G: uint8((c >> 8) & 0xFF),
 		R: uint8(c & 0xFF),
-	})
+	}
 }
 
 // imguiVecToPixelVec Converts the imgui vector to a Pixel vector

@@ -4,8 +4,6 @@ Adds GUIs to the [Pixel](https://github.com/faiface/pixel) rendering engine by i
 
 # Broken Things
 * Clipping rectangles; the command has a clipRect that we're currently ignoring.
-* Fix colors; I think this has to do with the imgui shader changing the Frag_Color alpha channel based on the uv of the texture.
-* Fix text rendering; no idea what's going on here.
 * Scrolling isn't working even though I'm passing the scroll through; it might just need to be scaled.
 * Text input/general key handling
 
