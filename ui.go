@@ -11,6 +11,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/faiface/mainthread"
 	"github.com/faiface/pixel/pixelgl"
 )
 
@@ -26,7 +27,12 @@ type UI struct {
 }
 
 // NewUI Creates the UI and setups up its internal structures
-func NewUI(context *imgui.Context, win *pixelgl.Window) *UI {
+func NewUI(win *pixelgl.Window) *UI {
+	var context *imgui.Context
+	mainthread.Call(func() {
+		context = imgui.CreateContext(nil)
+	})
+
 	ui := &UI{
 		context: context,
 	}
@@ -70,6 +76,11 @@ func NewUI(context *imgui.Context, win *pixelgl.Window) *UI {
 	ui.setKeyMapping()
 
 	return ui
+}
+
+// Destroy cleans up the imgui context
+func (ui *UI) Destroy() {
+	ui.context.Destroy()
 }
 
 // NewFrame Call this at the beginning of the frame to tell the UI that the frame has started
@@ -123,7 +134,7 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 
 				for i := 0; i < cmd.ElementCount(); i++ {
 					idx := unsafe.Pointer(uintptr(idxStart) + indexBufferOffset)
-					index := *(*C.ushort)(idx)
+					index := *(*uint16)(idx)
 					ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
 					pos := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
 					uv := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(uvOffset)))
