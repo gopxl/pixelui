@@ -15,15 +15,34 @@ import (
 	"github.com/faiface/pixel/pixelgl"
 )
 
+const uiShader = `
+#version 330 core
+in vec4  vColor;
+in vec2  vTexCoords;
+in float vIntensity;
+
+out vec4 fragColor;
+
+uniform vec4 uColorMask;
+uniform vec4 uTexBounds;
+uniform sampler2D uTexture;
+uniform vec4 uClipRect;
+
+void main() {
+	fragColor *= vColor * texture(uTexture, vTexCoords).a;
+}
+`
+
 // UI Stores the state of the pixelui UI
 type UI struct {
+	win     *pixelgl.Window
 	context *imgui.Context
 	io      imgui.IO
 	fonts   imgui.FontAtlas
 	timer   time.Time
 	pic     *pixel.PictureData
 	picture pixel.TargetPicture
-	canvas  *pixelgl.Canvas
+	shader  *pixelgl.GLShader
 }
 
 // NewUI Creates the UI and setups up its internal structures
@@ -34,6 +53,7 @@ func NewUI(win *pixelgl.Window) *UI {
 	})
 
 	ui := &UI{
+		win:     win,
 		context: context,
 	}
 
@@ -54,25 +74,9 @@ func NewUI(win *pixelgl.Window) *UI {
 		}
 	}
 
-	ui.canvas = pixelgl.NewCanvas(win.Canvas().Bounds())
-	ui.canvas.SetComposeMethod(pixel.ComposeOver)
-	ui.canvas.SetFragmentShader(`
-	#version 330 core
-	in vec4  vColor;
-	in vec2  vTexCoords;
-	in float vIntensity;
+	ui.shader = pixelgl.NewGLShader(uiShader)
 
-	out vec4 fragColor;
-
-	uniform vec4 uColorMask;
-	uniform vec4 uTexBounds;
-	uniform sampler2D uTexture;
-	void main() {
-		fragColor *= vColor * texture(uTexture, vTexCoords).a;
-	}
-	`)
-
-	ui.picture = ui.canvas.MakePicture(ui.pic)
+	ui.picture = win.Canvas().MakePicture(ui.pic)
 	ui.setKeyMapping()
 
 	return ui
@@ -87,7 +91,6 @@ func (ui *UI) Destroy() {
 func (ui *UI) NewFrame() {
 	ui.timer = time.Now()
 	imgui.NewFrame()
-	ui.canvas.Clear(pixel.Alpha(0))
 }
 
 // update Handles general update type things and handle inputs. Called from ui.Draw.
@@ -103,8 +106,34 @@ func (ui *UI) update(win *pixelgl.Window, matrix pixel.Matrix) {
 	ui.io.AddMouseWheelDelta(float32(win.MouseScroll().X), float32(win.MouseScroll().Y))
 }
 
+func (ui *UI) inputWant(button pixelgl.Button) bool {
+	switch button {
+	case pixelgl.MouseButton1 | pixelgl.MouseButton2 | pixelgl.MouseButton3 | pixelgl.MouseButton4 | pixelgl.MouseButton5 | pixelgl.MouseButton6 | pixelgl.MouseButton7 | pixelgl.MouseButton8 | pixelgl.MouseButtonLast | pixelgl.MouseButtonLeft | pixelgl.MouseButtonRight | pixelgl.MouseButtonMiddle:
+		return ui.io.WantCaptureMouse()
+	}
+	return ui.io.WantCaptureKeyboard()
+}
+
+func (ui *UI) JustPressed(button pixelgl.Button) bool {
+	return !ui.inputWant(button) && ui.win.JustPressed(button)
+}
+
+func (ui *UI) JustReleased(button pixelgl.Button) bool {
+	return !ui.inputWant(button) && ui.win.JustReleased(button)
+}
+
+func (ui *UI) Pressed(button pixelgl.Button) bool {
+	return !ui.inputWant(button) && ui.win.Pressed(button)
+}
+
+func (ui *UI) Repeated(button pixelgl.Button) bool {
+	return !ui.inputWant(button) && ui.win.Repeated(button)
+}
+
 // Draw Draws the imgui UI to the Pixel Window
 func (ui *UI) Draw(win *pixelgl.Window) {
+	win.Canvas().SetComposeMethod(pixel.ComposeOver)
+
 	// imgui draws things from top-left as 0,0 where Pixel draws from bottom-left as 0,0,
 	//	for drawing and handling inputs, we need to "flip" imgui.
 	matrix := pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
@@ -129,7 +158,6 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				cmd.CallUserCallback(cmds)
 			} else {
 				win.SetMatrix(matrix)
-
 				tris := pixel.MakeTrianglesData(cmd.ElementCount())
 
 				for i := 0; i < cmd.ElementCount(); i++ {
@@ -151,11 +179,15 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 					indexBufferOffset += uintptr(indexSize)
 				}
 
-				ui.picture.Draw(ui.canvas.MakeTriangles(tris))
+				clipRect := imguiRectToPixelRect(cmd.ClipRect())
+				clipRect.Min = matrix.Project(clipRect.Min)
+				clipRect.Max = matrix.Project(clipRect.Max)
+				shaderTris := pixelgl.NewGLTriangles(ui.shader, tris)
+				shaderTris.SetClipRect(clipRect)
+				ui.picture.Draw(win.Canvas().MakeTriangles(shaderTris))
 			}
 		}
 	}
-	ui.canvas.Draw(win, pixel.IM.Moved(ui.canvas.Bounds().Center()))
 
 	win.SetMatrix(pixel.IM)
 }
@@ -178,7 +210,7 @@ func imguiVecToPixelVec(v imgui.Vec2) pixel.Vec {
 
 // imguiRectToPixelRect Converts the imgui rect to a Pixel rect
 func imguiRectToPixelRect(r imgui.Vec4) pixel.Rect {
-	return pixel.R(float64(r.X), float64(r.Y), float64(r.X+r.Z), float64(r.Y+r.W))
+	return pixel.R(float64(r.X), float64(r.Y), float64(r.Z), float64(r.W))
 }
 
 func pixelVecToimguiVec(v pixel.Vec) imgui.Vec2 {
