@@ -93,6 +93,9 @@ func (ui *UI) Destroy() {
 // NewFrame Call this at the beginning of the frame to tell the UI that the frame has started
 func (ui *UI) NewFrame() {
 	ui.timer = time.Now()
+
+	ui.io.SetDisplaySize(pixelVecToimguiVec(ui.win.Bounds().Size()))
+
 	ui.io.AddMouseWheelDelta(float32(ui.win.MouseScroll().X), float32(ui.win.MouseScroll().Y))
 	mouse := ui.matrix.Unproject(ui.win.MousePosition())
 	ui.io.SetMousePosition(imgui.Vec2{X: float32(mouse.X), Y: float32(mouse.Y)})
@@ -100,7 +103,6 @@ func (ui *UI) NewFrame() {
 	ui.io.SetMouseButtonDown(0, ui.win.Pressed(pixelgl.MouseButtonLeft))
 	ui.io.SetMouseButtonDown(1, ui.win.Pressed(pixelgl.MouseButtonRight))
 	ui.io.SetMouseButtonDown(2, ui.win.Pressed(pixelgl.MouseButtonMiddle))
-	ui.io.AddInputCharacters(ui.win.Typed())
 
 	for _, key := range keys {
 		if ui.win.Pressed(key) {
@@ -110,15 +112,17 @@ func (ui *UI) NewFrame() {
 		}
 		ui.updateKeyMod()
 	}
+	ui.io.AddInputCharacters(ui.win.Typed())
+
 	imgui.NewFrame()
 }
 
 func (ui *UI) mapModifier(lKey pixelgl.Button, rKey pixelgl.Button) (lResult int, rResult int) {
 	if ui.win.Pressed(lKey) {
-		lResult = 1
+		lResult = int(lKey)
 	}
 	if ui.win.Pressed(rKey) {
-		rResult = 1
+		rResult = int(rKey)
 	}
 	return
 }
@@ -393,5 +397,13 @@ var keys = []pixelgl.Button{
 	pixelgl.KeyKPAdd,
 	pixelgl.KeyKPEnter,
 	pixelgl.KeyKPEqual,
+	pixelgl.KeyLeftShift,
+	pixelgl.KeyLeftControl,
+	pixelgl.KeyLeftAlt,
+	pixelgl.KeyLeftSuper,
+	pixelgl.KeyRightShift,
+	pixelgl.KeyRightControl,
+	pixelgl.KeyRightAlt,
+	pixelgl.KeyRightSuper,
 	pixelgl.KeyMenu,
 }
