@@ -93,30 +93,41 @@ func (ui *UI) Destroy() {
 // NewFrame Call this at the beginning of the frame to tell the UI that the frame has started
 func (ui *UI) NewFrame() {
 	ui.timer = time.Now()
-	imgui.NewFrame()
-
+	ui.io.AddMouseWheelDelta(float32(ui.win.MouseScroll().X), float32(ui.win.MouseScroll().Y))
 	mouse := ui.matrix.Unproject(ui.win.MousePosition())
 	ui.io.SetMousePosition(imgui.Vec2{X: float32(mouse.X), Y: float32(mouse.Y)})
 
 	ui.io.SetMouseButtonDown(0, ui.win.Pressed(pixelgl.MouseButtonLeft))
 	ui.io.SetMouseButtonDown(1, ui.win.Pressed(pixelgl.MouseButtonRight))
 	ui.io.SetMouseButtonDown(2, ui.win.Pressed(pixelgl.MouseButtonMiddle))
-	ui.io.AddMouseWheelDelta(float32(ui.win.MouseScroll().X), float32(ui.win.MouseScroll().Y))
 	ui.io.AddInputCharacters(ui.win.Typed())
 
 	for _, key := range keys {
-		if ui.win.JustPressed(key) {
+		if ui.win.Pressed(key) {
 			ui.io.KeyPress(int(key))
-		}
-		if ui.win.JustReleased(key) {
+		} else {
 			ui.io.KeyRelease(int(key))
 		}
+		ui.updateKeyMod()
 	}
+	imgui.NewFrame()
+}
 
-	ui.io.KeyCtrl(int(pixelgl.KeyLeftControl), int(pixelgl.KeyRightControl))
-	ui.io.KeyShift(int(pixelgl.KeyLeftShift), int(pixelgl.KeyRightShift))
-	ui.io.KeyAlt(int(pixelgl.KeyLeftAlt), int(pixelgl.KeyRightAlt))
-	ui.io.KeySuper(int(pixelgl.KeyLeftSuper), int(pixelgl.KeyRightSuper))
+func (ui *UI) mapModifier(lKey pixelgl.Button, rKey pixelgl.Button) (lResult int, rResult int) {
+	if ui.win.Pressed(lKey) {
+		lResult = 1
+	}
+	if ui.win.Pressed(rKey) {
+		rResult = 1
+	}
+	return
+}
+
+func (ui *UI) updateKeyMod() {
+	ui.io.KeyCtrl(ui.mapModifier(pixelgl.KeyLeftControl, pixelgl.KeyRightControl))
+	ui.io.KeyShift(ui.mapModifier(pixelgl.KeyLeftShift, pixelgl.KeyRightShift))
+	ui.io.KeyAlt(ui.mapModifier(pixelgl.KeyLeftAlt, pixelgl.KeyRightAlt))
+	ui.io.KeySuper(ui.mapModifier(pixelgl.KeyLeftSuper, pixelgl.KeyRightSuper))
 }
 
 // update Handles general update type things and handle inputs. Called from ui.Draw.
