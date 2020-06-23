@@ -35,19 +35,24 @@ void main() {
 
 // UI Stores the state of the pixelui UI
 type UI struct {
-	win     *pixelgl.Window
-	context *imgui.Context
-	io      imgui.IO
-	fonts   imgui.FontAtlas
-	timer   time.Time
-	pic     *pixel.PictureData
-	picture pixel.TargetPicture
-	shader  *pixelgl.GLShader
-	matrix  pixel.Matrix
+	win       *pixelgl.Window
+	context   *imgui.Context
+	io        imgui.IO
+	fonts     imgui.FontAtlas
+	timer     time.Time
+	fontAtlas pixel.TargetPicture
+	shader    *pixelgl.GLShader
+	matrix    pixel.Matrix
 }
 
+// pixelui.NewUI flags:
+//	NO_DEFAULT_FONT: Do not load the default font during NewUI.
+const (
+	NO_DEFAULT_FONT = 0x0001
+)
+
 // NewUI Creates the UI and setups up its internal structures
-func NewUI(win *pixelgl.Window) *UI {
+func NewUI(win *pixelgl.Window, flags int) *UI {
 	var context *imgui.Context
 	mainthread.Call(func() {
 		context = imgui.CreateContext(nil)
@@ -64,22 +69,12 @@ func NewUI(win *pixelgl.Window) *UI {
 	ui.io.SetDisplaySize(pixelVecToimguiVec(win.Bounds().Size()))
 
 	ui.fonts = ui.io.Fonts()
-	ui.fonts.AddFontDefault()
-	f := ui.fonts.TextureDataAlpha8()
-
-	ui.pic = pixel.MakePictureData(pixel.R(0, 0, float64(f.Width), float64(f.Height)))
-
-	for y := 0; y < f.Height; y++ {
-		for x := 0; x < f.Width; x++ {
-			i := y*f.Width + x
-			ptr := (*uint8)(unsafe.Pointer(uintptr(f.Pixels) + uintptr(i)))
-			ui.pic.Pix[i] = color.RGBA{R: 0, G: 0, B: 0, A: *ptr}
-		}
-	}
 
 	ui.shader = pixelgl.NewGLShader(uiShader)
 
-	ui.picture = win.Canvas().MakePicture(ui.pic)
+	if flags&NO_DEFAULT_FONT == 0 {
+		ui.loadDefaultFont()
+	}
 	ui.setKeyMapping()
 
 	return ui
@@ -158,7 +153,7 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				clipRect.Max = ui.matrix.Project(clipRect.Max)
 				shaderTris := pixelgl.NewGLTriangles(ui.shader, tris)
 				shaderTris.SetClipRect(clipRect)
-				ui.picture.Draw(win.Canvas().MakeTriangles(shaderTris))
+				ui.fontAtlas.Draw(win.Canvas().MakeTriangles(shaderTris))
 			}
 		}
 	}
