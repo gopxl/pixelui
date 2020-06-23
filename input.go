@@ -5,6 +5,7 @@ import (
 	"github.com/inkyblackness/imgui-go"
 )
 
+// prepareIO tells imgui.io about our current io state.
 func (ui *UI) prepareIO() {
 	ui.io.SetDisplaySize(pixelVecToimguiVec(ui.win.Bounds().Size()))
 
@@ -27,21 +28,12 @@ func (ui *UI) prepareIO() {
 	ui.io.AddInputCharacters(ui.win.Typed())
 }
 
-func (ui *UI) mapModifier(lKey pixelgl.Button, rKey pixelgl.Button) (lResult int, rResult int) {
-	if ui.win.Pressed(lKey) {
-		lResult = int(lKey)
-	}
-	if ui.win.Pressed(rKey) {
-		rResult = int(rKey)
-	}
-	return
-}
-
+// updateKeyMod tells imgui.io where to find our key modifiers
 func (ui *UI) updateKeyMod() {
-	ui.io.KeyCtrl(ui.mapModifier(pixelgl.KeyLeftControl, pixelgl.KeyRightControl))
-	ui.io.KeyShift(ui.mapModifier(pixelgl.KeyLeftShift, pixelgl.KeyRightShift))
-	ui.io.KeyAlt(ui.mapModifier(pixelgl.KeyLeftAlt, pixelgl.KeyRightAlt))
-	ui.io.KeySuper(ui.mapModifier(pixelgl.KeyLeftSuper, pixelgl.KeyRightSuper))
+	ui.io.KeyCtrl(int(pixelgl.KeyLeftControl), int(pixelgl.KeyRightControl))
+	ui.io.KeyShift(int(pixelgl.KeyLeftShift), int(pixelgl.KeyRightShift))
+	ui.io.KeyAlt(int(pixelgl.KeyLeftAlt), int(pixelgl.KeyRightAlt))
+	ui.io.KeySuper(int(pixelgl.KeyLeftSuper), int(pixelgl.KeyRightSuper))
 }
 
 // inputWant is a helper for determining what type a button is: keyboard/mouse
@@ -73,6 +65,7 @@ func (ui *UI) Repeated(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.Repeated(button)
 }
 
+// setKeyMapping maps pixelgl buttons to imgui keys.
 func (ui *UI) setKeyMapping() {
 	keys := map[int]pixelgl.Button{
 		imgui.KeyTab:        pixelgl.KeyTab,
