@@ -43,6 +43,7 @@ type UI struct {
 	pic     *pixel.PictureData
 	picture pixel.TargetPicture
 	shader  *pixelgl.GLShader
+	matrix  pixel.Matrix
 }
 
 // NewUI Creates the UI and setups up its internal structures
@@ -56,6 +57,8 @@ func NewUI(win *pixelgl.Window) *UI {
 		win:     win,
 		context: context,
 	}
+
+	ui.matrix = pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
 
 	ui.io = imgui.CurrentIO()
 	ui.io.SetDisplaySize(pixelVecToimguiVec(win.Bounds().Size()))
@@ -91,53 +94,57 @@ func (ui *UI) Destroy() {
 func (ui *UI) NewFrame() {
 	ui.timer = time.Now()
 	imgui.NewFrame()
+
+	mouse := ui.matrix.Unproject(ui.win.MousePosition())
+	ui.io.SetMousePosition(imgui.Vec2{X: float32(mouse.X), Y: float32(mouse.Y)})
+
+	ui.io.SetMouseButtonDown(0, ui.win.Pressed(pixelgl.MouseButtonLeft))
+	ui.io.SetMouseButtonDown(1, ui.win.Pressed(pixelgl.MouseButtonRight))
+	ui.io.SetMouseButtonDown(2, ui.win.Pressed(pixelgl.MouseButtonMiddle))
+	ui.io.AddMouseWheelDelta(float32(ui.win.MouseScroll().X), float32(ui.win.MouseScroll().Y))
 }
 
 // update Handles general update type things and handle inputs. Called from ui.Draw.
-func (ui *UI) update(win *pixelgl.Window, matrix pixel.Matrix) {
+func (ui *UI) update() {
 	ui.io.SetDeltaTime(float32(time.Since(ui.timer).Seconds()))
-
-	mouse := matrix.Unproject(win.MousePosition())
-	ui.io.SetMousePosition(imgui.Vec2{X: float32(mouse.X), Y: float32(mouse.Y)})
-
-	ui.io.SetMouseButtonDown(0, win.Pressed(pixelgl.MouseButtonLeft))
-	ui.io.SetMouseButtonDown(1, win.Pressed(pixelgl.MouseButtonRight))
-	ui.io.SetMouseButtonDown(2, win.Pressed(pixelgl.MouseButtonMiddle))
-	ui.io.AddMouseWheelDelta(float32(win.MouseScroll().X), float32(win.MouseScroll().Y))
 }
 
+// inputWant is a helper for determining what type a button is: keyboard/mouse
 func (ui *UI) inputWant(button pixelgl.Button) bool {
 	switch button {
-	case pixelgl.MouseButton1 | pixelgl.MouseButton2 | pixelgl.MouseButton3 | pixelgl.MouseButton4 | pixelgl.MouseButton5 | pixelgl.MouseButton6 | pixelgl.MouseButton7 | pixelgl.MouseButton8 | pixelgl.MouseButtonLast | pixelgl.MouseButtonLeft | pixelgl.MouseButtonRight | pixelgl.MouseButtonMiddle:
+	case pixelgl.MouseButton1, pixelgl.MouseButton2, pixelgl.MouseButton3, pixelgl.MouseButton4, pixelgl.MouseButton5, pixelgl.MouseButton6, pixelgl.MouseButton7, pixelgl.MouseButton8:
 		return ui.io.WantCaptureMouse()
 	}
 	return ui.io.WantCaptureKeyboard()
 }
 
+// JustPressed returns true if imgui hasn't handled the button and the button was just pressed
 func (ui *UI) JustPressed(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.JustPressed(button)
 }
 
+// JustPressed returns true if imgui hasn't handled the button and the button was just released
 func (ui *UI) JustReleased(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.JustReleased(button)
 }
 
+// JustPressed returns true if imgui hasn't handled the button and the button is pressed
 func (ui *UI) Pressed(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.Pressed(button)
 }
 
+// Repeated returns true if imgui hasn't handled the button and the button was repeated
 func (ui *UI) Repeated(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.Repeated(button)
 }
 
 // Draw Draws the imgui UI to the Pixel Window
 func (ui *UI) Draw(win *pixelgl.Window) {
-	win.Canvas().SetComposeMethod(pixel.ComposeOver)
+	win.SetComposeMethod(pixel.ComposeOver)
 
 	// imgui draws things from top-left as 0,0 where Pixel draws from bottom-left as 0,0,
 	//	for drawing and handling inputs, we need to "flip" imgui.
-	matrix := pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
-	ui.update(win, matrix)
+	ui.update()
 
 	// Tell imgui to render and get the resulting draw data
 	imgui.Render()
@@ -157,7 +164,7 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 			if cmd.HasUserCallback() {
 				cmd.CallUserCallback(cmds)
 			} else {
-				win.SetMatrix(matrix)
+				win.SetMatrix(ui.matrix)
 				tris := pixel.MakeTrianglesData(cmd.ElementCount())
 
 				for i := 0; i < cmd.ElementCount(); i++ {
@@ -180,8 +187,8 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				}
 
 				clipRect := imguiRectToPixelRect(cmd.ClipRect())
-				clipRect.Min = matrix.Project(clipRect.Min)
-				clipRect.Max = matrix.Project(clipRect.Max)
+				clipRect.Min = ui.matrix.Project(clipRect.Min)
+				clipRect.Max = ui.matrix.Project(clipRect.Max)
 				shaderTris := pixelgl.NewGLTriangles(ui.shader, tris)
 				shaderTris.SetClipRect(clipRect)
 				ui.picture.Draw(win.Canvas().MakeTriangles(shaderTris))
