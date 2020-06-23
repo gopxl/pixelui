@@ -102,6 +102,21 @@ func (ui *UI) NewFrame() {
 	ui.io.SetMouseButtonDown(1, ui.win.Pressed(pixelgl.MouseButtonRight))
 	ui.io.SetMouseButtonDown(2, ui.win.Pressed(pixelgl.MouseButtonMiddle))
 	ui.io.AddMouseWheelDelta(float32(ui.win.MouseScroll().X), float32(ui.win.MouseScroll().Y))
+	ui.io.AddInputCharacters(ui.win.Typed())
+
+	for _, key := range keys {
+		if ui.win.JustPressed(key) {
+			ui.io.KeyPress(int(key))
+		}
+		if ui.win.JustReleased(key) {
+			ui.io.KeyRelease(int(key))
+		}
+	}
+
+	ui.io.KeyCtrl(int(pixelgl.KeyLeftControl), int(pixelgl.KeyRightControl))
+	ui.io.KeyShift(int(pixelgl.KeyLeftShift), int(pixelgl.KeyRightShift))
+	ui.io.KeyAlt(int(pixelgl.KeyLeftAlt), int(pixelgl.KeyRightAlt))
+	ui.io.KeySuper(int(pixelgl.KeyLeftSuper), int(pixelgl.KeyRightSuper))
 }
 
 // update Handles general update type things and handle inputs. Called from ui.Draw.
@@ -253,4 +268,119 @@ func (ui *UI) setKeyMapping() {
 	for imguiKey, nativeKey := range keys {
 		ui.io.KeyMap(imguiKey, int(nativeKey))
 	}
+}
+
+var keys = []pixelgl.Button{
+	pixelgl.KeySpace,
+	pixelgl.KeyApostrophe,
+	pixelgl.KeyComma,
+	pixelgl.KeyMinus,
+	pixelgl.KeyPeriod,
+	pixelgl.KeySlash,
+	pixelgl.Key0,
+	pixelgl.Key1,
+	pixelgl.Key2,
+	pixelgl.Key3,
+	pixelgl.Key4,
+	pixelgl.Key5,
+	pixelgl.Key6,
+	pixelgl.Key7,
+	pixelgl.Key8,
+	pixelgl.Key9,
+	pixelgl.KeySemicolon,
+	pixelgl.KeyEqual,
+	pixelgl.KeyA,
+	pixelgl.KeyB,
+	pixelgl.KeyC,
+	pixelgl.KeyD,
+	pixelgl.KeyE,
+	pixelgl.KeyF,
+	pixelgl.KeyG,
+	pixelgl.KeyH,
+	pixelgl.KeyI,
+	pixelgl.KeyJ,
+	pixelgl.KeyK,
+	pixelgl.KeyL,
+	pixelgl.KeyM,
+	pixelgl.KeyN,
+	pixelgl.KeyO,
+	pixelgl.KeyP,
+	pixelgl.KeyQ,
+	pixelgl.KeyR,
+	pixelgl.KeyS,
+	pixelgl.KeyT,
+	pixelgl.KeyU,
+	pixelgl.KeyV,
+	pixelgl.KeyW,
+	pixelgl.KeyX,
+	pixelgl.KeyY,
+	pixelgl.KeyZ,
+	pixelgl.KeyLeftBracket,
+	pixelgl.KeyBackslash,
+	pixelgl.KeyRightBracket,
+	pixelgl.KeyGraveAccent,
+	pixelgl.KeyWorld1,
+	pixelgl.KeyWorld2,
+	pixelgl.KeyEscape,
+	pixelgl.KeyEnter,
+	pixelgl.KeyTab,
+	pixelgl.KeyBackspace,
+	pixelgl.KeyInsert,
+	pixelgl.KeyDelete,
+	pixelgl.KeyRight,
+	pixelgl.KeyLeft,
+	pixelgl.KeyDown,
+	pixelgl.KeyUp,
+	pixelgl.KeyPageUp,
+	pixelgl.KeyPageDown,
+	pixelgl.KeyHome,
+	pixelgl.KeyEnd,
+	pixelgl.KeyCapsLock,
+	pixelgl.KeyScrollLock,
+	pixelgl.KeyNumLock,
+	pixelgl.KeyPrintScreen,
+	pixelgl.KeyPause,
+	pixelgl.KeyF1,
+	pixelgl.KeyF2,
+	pixelgl.KeyF3,
+	pixelgl.KeyF4,
+	pixelgl.KeyF5,
+	pixelgl.KeyF6,
+	pixelgl.KeyF7,
+	pixelgl.KeyF8,
+	pixelgl.KeyF9,
+	pixelgl.KeyF10,
+	pixelgl.KeyF11,
+	pixelgl.KeyF12,
+	pixelgl.KeyF13,
+	pixelgl.KeyF14,
+	pixelgl.KeyF15,
+	pixelgl.KeyF16,
+	pixelgl.KeyF17,
+	pixelgl.KeyF18,
+	pixelgl.KeyF19,
+	pixelgl.KeyF20,
+	pixelgl.KeyF21,
+	pixelgl.KeyF22,
+	pixelgl.KeyF23,
+	pixelgl.KeyF24,
+	pixelgl.KeyF25,
+	pixelgl.KeyKP0,
+	pixelgl.KeyKP1,
+	pixelgl.KeyKP2,
+	pixelgl.KeyKP3,
+	pixelgl.KeyKP4,
+	pixelgl.KeyKP5,
+	pixelgl.KeyKP6,
+	pixelgl.KeyKP7,
+	pixelgl.KeyKP8,
+	pixelgl.KeyKP9,
+	pixelgl.KeyKPDecimal,
+	pixelgl.KeyKPDivide,
+	pixelgl.KeyKPMultiply,
+	pixelgl.KeyKPSubtract,
+	pixelgl.KeyKPAdd,
+	pixelgl.KeyKPEnter,
+	pixelgl.KeyKPEqual,
+	pixelgl.KeyMenu,
 }
