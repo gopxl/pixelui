@@ -7,7 +7,7 @@ import (
 
 // prepareIO tells imgui.io about our current io state.
 func (ui *UI) prepareIO() {
-	ui.io.SetDisplaySize(pixelVecToimguiVec(ui.win.Bounds().Size()))
+	ui.io.SetDisplaySize(IVec(ui.win.Bounds().Size()))
 
 	ui.io.AddMouseWheelDelta(float32(ui.win.MouseScroll().X), float32(ui.win.MouseScroll().Y))
 	mouse := ui.matrix.Unproject(ui.win.MousePosition())
@@ -30,7 +30,7 @@ func (ui *UI) prepareIO() {
 
 // updateKeyMod tells imgui.io where to find our key modifiers
 func (ui *UI) updateKeyMod() {
-	ui.io.KeyCtrl(int(pixelgl.KeyLeftControl), int(pixelgl.KeyRightControl))
+	ui.io.KeyCtrl(int(pixelgl.KeyLeftAlt), int(pixelgl.KeyRightAlt))
 	ui.io.KeyShift(int(pixelgl.KeyLeftShift), int(pixelgl.KeyRightShift))
 	ui.io.KeyAlt(int(pixelgl.KeyLeftAlt), int(pixelgl.KeyRightAlt))
 	ui.io.KeySuper(int(pixelgl.KeyLeftSuper), int(pixelgl.KeyRightSuper))
@@ -63,6 +63,26 @@ func (ui *UI) Pressed(button pixelgl.Button) bool {
 // Repeated returns true if imgui hasn't handled the button and the button was repeated
 func (ui *UI) Repeated(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.Repeated(button)
+}
+
+// KeyCtrl returns true if either left or right control is pressed
+func (ui *UI) KeyCtrl() bool {
+	return ui.win.Pressed(pixelgl.KeyLeftControl) || ui.win.Pressed(pixelgl.KeyRightControl)
+}
+
+// KeyCtrl returns true if either left or right shift is pressed
+func (ui *UI) KeyShift() bool {
+	return ui.win.Pressed(pixelgl.KeyLeftShift) || ui.win.Pressed(pixelgl.KeyRightShift)
+}
+
+// KeyCtrl returns true if either left or right alt is pressed
+func (ui *UI) KeyAlt() bool {
+	return ui.win.Pressed(pixelgl.KeyLeftAlt) || ui.win.Pressed(pixelgl.KeyRightAlt)
+}
+
+// KeyCtrl returns true if either left or right super (windows key) is pressed
+func (ui *UI) KeySuper() bool {
+	return ui.win.Pressed(pixelgl.KeyLeftSuper) || ui.win.Pressed(pixelgl.KeyRightSuper)
 }
 
 // setKeyMapping maps pixelgl buttons to imgui keys.
@@ -210,11 +230,11 @@ var keys = []pixelgl.Button{
 	pixelgl.KeyKPEnter,
 	pixelgl.KeyKPEqual,
 	pixelgl.KeyLeftShift,
-	pixelgl.KeyLeftControl,
+	pixelgl.KeyLeftAlt,
 	pixelgl.KeyLeftAlt,
 	pixelgl.KeyLeftSuper,
 	pixelgl.KeyRightShift,
-	pixelgl.KeyRightControl,
+	pixelgl.KeyRightAlt,
 	pixelgl.KeyRightAlt,
 	pixelgl.KeyRightSuper,
 	pixelgl.KeyMenu,

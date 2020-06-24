@@ -45,6 +45,8 @@ type UI struct {
 	matrix    pixel.Matrix
 }
 
+var currentUI *UI
+
 // pixelui.NewUI flags:
 //	NO_DEFAULT_FONT: Do not load the default font during NewUI.
 const (
@@ -62,11 +64,12 @@ func NewUI(win *pixelgl.Window, flags int) *UI {
 		win:     win,
 		context: context,
 	}
+	currentUI = ui
 
 	ui.matrix = pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
 
 	ui.io = imgui.CurrentIO()
-	ui.io.SetDisplaySize(pixelVecToimguiVec(win.Bounds().Size()))
+	ui.io.SetDisplaySize(IVec(win.Bounds().Size()))
 
 	ui.fonts = ui.io.Fonts()
 
@@ -137,9 +140,9 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 					uv := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(uvOffset)))
 					col := (*uint32)(unsafe.Pointer(uintptr(ptr) + uintptr(colOffset)))
 
-					position := imguiVecToPixelVec(*pos)
+					position := PV(*pos)
 					color := imguiColorToPixelColor(*col)
-					uuvv := imguiVecToPixelVec(*uv)
+					uuvv := PV(*uv)
 
 					(*tris)[i].Position = position
 					(*tris)[i].Picture = uuvv
@@ -172,16 +175,44 @@ func imguiColorToPixelColor(c uint32) color.RGBA {
 	}
 }
 
-// imguiVecToPixelVec Converts the imgui vector to a Pixel vector
-func imguiVecToPixelVec(v imgui.Vec2) pixel.Vec {
-	return pixel.V(float64(v.X), float64(v.Y))
-}
-
 // imguiRectToPixelRect Converts the imgui rect to a Pixel rect
 func imguiRectToPixelRect(r imgui.Vec4) pixel.Rect {
 	return pixel.R(float64(r.X), float64(r.Y), float64(r.Z), float64(r.W))
 }
 
-func pixelVecToimguiVec(v pixel.Vec) imgui.Vec2 {
+// IVec converts a pixel vector to an imgui vector
+func IVec(v pixel.Vec) imgui.Vec2 {
 	return imgui.Vec2{X: float32(v.X), Y: float32(v.Y)}
+}
+
+// IV creates an imgui vector from the given points.
+func IV(x, y float64) imgui.Vec2 {
+	return imgui.Vec2{X: float32(x), Y: float32(y)}
+}
+
+// PV converts an imgui vector to a pixel vector
+func PV(v imgui.Vec2) pixel.Vec {
+	return pixel.V(float64(v.X), float64(v.Y))
+}
+
+// ProjectVec projects the vector by the UI's matrix (vertical flip)
+// 	and returns that as a imgui vector
+func ProjectVec(v pixel.Vec) imgui.Vec2 {
+	return IVec(currentUI.matrix.Project(v))
+}
+
+// ProjectV creates a pixel vector and projects it using ProjectVec
+func ProjectV(x, y float64) imgui.Vec2 {
+	return ProjectVec(pixel.V(x, y))
+}
+
+// UnprojectV unprojects the vector by the UI's matrix (vertical flip)
+// 	and returns that as a pixel vector
+func UnprojectV(v imgui.Vec2) pixel.Vec {
+	return currentUI.matrix.Unproject(PV(v))
+}
+
+// IZV returns an imgui zero vector
+func IZV() imgui.Vec2 {
+	return imgui.Vec2{X: 0, Y: 0}
 }
