@@ -1,6 +1,7 @@
 package pixelui
 
 import (
+	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
 	"github.com/inkyblackness/imgui-go"
 )
@@ -43,6 +44,16 @@ func (ui *UI) inputWant(button pixelgl.Button) bool {
 		return ui.io.WantCaptureMouse()
 	}
 	return ui.io.WantCaptureKeyboard()
+}
+
+// MouseScroll returns the mouse scroll amount if imgui does not want the mouse
+//	(if mouse is not hovering an imgui element)
+func (ui *UI) MouseScroll() pixel.Vec {
+	if ui.io.WantCaptureMouse() {
+		return pixel.ZV
+	}
+
+	return ui.win.MouseScroll()
 }
 
 // JustPressed returns true if imgui hasn't handled the button and the button was just pressed
