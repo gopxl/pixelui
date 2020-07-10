@@ -20,6 +20,7 @@ const uiShader = `
 in vec4  vColor;
 in vec2  vTexCoords;
 in float vIntensity;
+in vec4  vClipRect;
 
 out vec4 fragColor;
 
@@ -29,20 +30,23 @@ uniform sampler2D uTexture;
 uniform vec4 uClipRect;
 
 void main() {
+	if ((vClipRect != vec4(0,0,0,0)) && (gl_FragCoord.x < vClipRect.x || gl_FragCoord.y < vClipRect.y || gl_FragCoord.x > vClipRect.z || gl_FragCoord.y > vClipRect.w))
+		discard;
 	fragColor *= vColor * texture(uTexture, vTexCoords).a;
 }
 `
 
 // UI Stores the state of the pixelui UI
 type UI struct {
-	win       *pixelgl.Window
-	context   *imgui.Context
-	io        imgui.IO
-	fonts     imgui.FontAtlas
-	timer     time.Time
-	fontAtlas pixel.TargetPicture
-	shader    *pixelgl.GLShader
-	matrix    pixel.Matrix
+	win        *pixelgl.Window
+	context    *imgui.Context
+	io         imgui.IO
+	fonts      imgui.FontAtlas
+	timer      time.Time
+	fontAtlas  pixel.TargetPicture
+	shader     *pixelgl.GLShader
+	matrix     pixel.Matrix
+	shaderTris *pixelgl.GLTriangles
 }
 
 var currentUI *UI
@@ -74,6 +78,8 @@ func NewUI(win *pixelgl.Window, flags int) *UI {
 	ui.fonts = ui.io.Fonts()
 
 	ui.shader = pixelgl.NewGLShader(uiShader)
+
+	ui.shaderTris = pixelgl.NewGLTriangles(ui.shader, pixel.MakeTrianglesData(0))
 
 	if flags&NO_DEFAULT_FONT == 0 {
 		ui.loadDefaultFont()
@@ -115,6 +121,11 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 	imgui.Render()
 	data := imgui.RenderedDrawData()
 
+	// Since we have to redraw all of the triangles every frame,
+	//	only resize the triangles list when we need to, and truncate
+	//	it right before we draw (to get rid of any extra triangles).
+	totalTris := 0
+
 	// In each command, there is a vertex buffer that holds all of the vertices to draw;
 	// 	there's also an index buffer which stores the indices into the vertex buffer that should
 	//	be draw together. The vertex buffer is shared between multiple commands.
@@ -129,10 +140,22 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 			if cmd.HasUserCallback() {
 				cmd.CallUserCallback(cmds)
 			} else {
-				win.SetMatrix(ui.matrix)
-				tris := pixel.MakeTrianglesData(cmd.ElementCount())
+				count := cmd.ElementCount()
+				iStart := totalTris
+				totalTris += count
 
-				for i := 0; i < cmd.ElementCount(); i++ {
+				win.SetMatrix(ui.matrix)
+
+				if ui.shaderTris.Len() < totalTris {
+					ui.shaderTris.SetLen(totalTris)
+				}
+
+				clipRect := imguiRectToPixelRect(cmd.ClipRect()).Norm()
+				clipRect.Min = ui.matrix.Project(clipRect.Min)
+				clipRect.Max = ui.matrix.Project(clipRect.Max)
+				clipRect = clipRect.Norm()
+
+				for i := 0; i < count; i++ {
 					idx := unsafe.Pointer(uintptr(idxStart) + indexBufferOffset)
 					index := *(*uint16)(idx)
 					ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
@@ -144,22 +167,19 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 					color := imguiColorToPixelColor(*col)
 					uuvv := PV(*uv)
 
-					(*tris)[i].Position = position
-					(*tris)[i].Picture = uuvv
-					(*tris)[i].Color = pixel.ToRGBA(color)
-					(*tris)[i].Intensity = 0
+					ui.shaderTris.SetPosition(iStart+i, position)
+					ui.shaderTris.SetPicture(iStart+i, uuvv, 0)
+					ui.shaderTris.SetColor(iStart+i, pixel.ToRGBA(color))
+					ui.shaderTris.SetClipRect(iStart+i, clipRect)
 					indexBufferOffset += uintptr(indexSize)
 				}
-
-				clipRect := imguiRectToPixelRect(cmd.ClipRect())
-				clipRect.Min = ui.matrix.Project(clipRect.Min)
-				clipRect.Max = ui.matrix.Project(clipRect.Max)
-				shaderTris := pixelgl.NewGLTriangles(ui.shader, tris)
-				shaderTris.SetClipRect(clipRect)
-				ui.fontAtlas.Draw(win.Canvas().MakeTriangles(shaderTris))
 			}
 		}
 	}
+
+	ui.shaderTris.SetLen(totalTris)
+	ui.shaderTris.CopyVertices()
+	ui.fontAtlas.Draw(win.MakeTriangles(ui.shaderTris))
 
 	win.SetMatrix(pixel.IM)
 }
