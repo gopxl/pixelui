@@ -5,6 +5,8 @@ import (
 	"log"
 	"unsafe"
 
+	"github.com/inkyblackness/imgui-go"
+
 	"github.com/faiface/pixel"
 )
 
@@ -22,6 +24,9 @@ func (ui *UI) loadFont() {
 	}
 
 	ui.fontAtlas = ui.win.MakePicture(pic)
+	id, _ := ui.packer.Insert(pixel.NewSprite(pic, pic.Bounds()))
+	ui.fontId = id
+	ui.fonts.SetTextureID(imgui.TextureID(id))
 }
 
 // loadDefaultFont loads the imgui default font if the user wants it.

@@ -11,6 +11,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/dusk125/pixelutils/packer"
 	"github.com/faiface/mainthread"
 	"github.com/faiface/pixel/pixelgl"
 )
@@ -32,7 +33,15 @@ uniform vec4 uClipRect;
 void main() {
 	if ((vClipRect != vec4(0,0,0,0)) && (gl_FragCoord.x < vClipRect.x || gl_FragCoord.y < vClipRect.y || gl_FragCoord.x > vClipRect.z || gl_FragCoord.y > vClipRect.w))
 		discard;
-	fragColor *= vColor * texture(uTexture, vTexCoords).a;
+	if (vIntensity == 0) {
+		fragColor *= vColor * texture(uTexture, vTexCoords).a;
+		fragColor *= uColorMask;
+	} else {
+		fragColor = vec4(0, 0, 0, 0);
+		fragColor += vColor;
+		fragColor *= vColor * texture(uTexture, vTexCoords);
+		fragColor *= uColorMask;
+	}
 }
 `
 
@@ -47,6 +56,8 @@ type UI struct {
 	shader     *pixelgl.GLShader
 	matrix     pixel.Matrix
 	shaderTris *pixelgl.GLTriangles
+	packer     *packer.Packer
+	fontId     int
 }
 
 var currentUI *UI
@@ -54,11 +65,11 @@ var currentUI *UI
 // pixelui.NewUI flags:
 //	NO_DEFAULT_FONT: Do not load the default font during NewUI.
 const (
-	NO_DEFAULT_FONT = 0x0001
+	NO_DEFAULT_FONT uint8 = 1 << iota
 )
 
 // NewUI Creates the UI and setups up its internal structures
-func NewUI(win *pixelgl.Window, flags int) *UI {
+func NewUI(win *pixelgl.Window, flags uint8) *UI {
 	var context *imgui.Context
 	mainthread.Call(func() {
 		context = imgui.CreateContext(nil)
@@ -69,6 +80,8 @@ func NewUI(win *pixelgl.Window, flags int) *UI {
 		context: context,
 	}
 	currentUI = ui
+
+	ui.packer = packer.NewPacker(4069, 4096, 0)
 
 	ui.matrix = pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
 
@@ -87,6 +100,10 @@ func NewUI(win *pixelgl.Window, flags int) *UI {
 	ui.setKeyMapping()
 
 	return ui
+}
+
+func (ui UI) GetPacker() *packer.Packer {
+	return ui.packer
 }
 
 // Destroy cleans up the imgui context
@@ -112,6 +129,7 @@ func (ui *UI) update() {
 // Draw Draws the imgui UI to the Pixel Window
 func (ui *UI) Draw(win *pixelgl.Window) {
 	win.SetComposeMethod(pixel.ComposeOver)
+	win.SetMatrix(ui.matrix)
 
 	// imgui draws things from top-left as 0,0 where Pixel draws from bottom-left as 0,0,
 	//	for drawing and handling inputs, we need to "flip" imgui.
@@ -155,6 +173,14 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				clipRect.Max = ui.matrix.Project(clipRect.Max)
 				clipRect = clipRect.Norm()
 
+				id := int(cmd.TextureID())
+				texRect := ui.packer.BoundsOf(id)
+
+				intensity := 0.0
+				if id != ui.fontId {
+					intensity = 1.0
+				}
+
 				for i := 0; i < count; i++ {
 					idx := unsafe.Pointer(uintptr(idxStart) + indexBufferOffset)
 					index := *(*uint16)(idx)
@@ -165,10 +191,10 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 
 					position := PV(*pos)
 					color := imguiColorToPixelColor(*col)
-					uuvv := PV(*uv)
+					uuvv := ui.calcData(texRect, PV(*uv))
 
 					ui.shaderTris.SetPosition(iStart+i, position)
-					ui.shaderTris.SetPicture(iStart+i, uuvv, 0)
+					ui.shaderTris.SetPicture(iStart+i, uuvv, intensity)
 					ui.shaderTris.SetColor(iStart+i, pixel.ToRGBA(color))
 					ui.shaderTris.SetClipRect(iStart+i, clipRect)
 					indexBufferOffset += uintptr(indexSize)
@@ -179,12 +205,23 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 
 	ui.shaderTris.SetLen(totalTris)
 	ui.shaderTris.CopyVertices()
-	ui.fontAtlas.Draw(win.MakeTriangles(ui.shaderTris))
+	win.MakePicture(ui.packer.Picture()).Draw(win.MakeTriangles(ui.shaderTris))
 
 	win.SetMatrix(pixel.IM)
+	// ui.packer.Draw(win, pixel.IM.Moved(ui.packer.Center()))
 }
 
-// imguiColorToPixelColor Converts the imgui color to a Pixel color
+// recip returns the reciprocal of the given number.
+func recip(m float64) float64 {
+	return 1 / m
+}
+
+// calcData scales the incoming sprite uv to the proper sub-sprite in the packed atlas.
+func (ui *UI) calcData(frame pixel.Rect, uuvv pixel.Vec) (pic pixel.Vec) {
+	return uuvv.ScaledXY(frame.Size()).Add(frame.Min).ScaledXY(ui.packer.Bounds().Size().Map(recip))
+}
+
+// imguiColorToPixelColor Converts the imgui color to a Pixel color.
 func imguiColorToPixelColor(c uint32) color.RGBA {
 	// ABGR -> RGBA
 	return color.RGBA{
@@ -193,46 +230,4 @@ func imguiColorToPixelColor(c uint32) color.RGBA {
 		G: uint8((c >> 8) & 0xFF),
 		R: uint8(c & 0xFF),
 	}
-}
-
-// imguiRectToPixelRect Converts the imgui rect to a Pixel rect
-func imguiRectToPixelRect(r imgui.Vec4) pixel.Rect {
-	return pixel.R(float64(r.X), float64(r.Y), float64(r.Z), float64(r.W))
-}
-
-// IVec converts a pixel vector to an imgui vector
-func IVec(v pixel.Vec) imgui.Vec2 {
-	return imgui.Vec2{X: float32(v.X), Y: float32(v.Y)}
-}
-
-// IV creates an imgui vector from the given points.
-func IV(x, y float64) imgui.Vec2 {
-	return imgui.Vec2{X: float32(x), Y: float32(y)}
-}
-
-// PV converts an imgui vector to a pixel vector
-func PV(v imgui.Vec2) pixel.Vec {
-	return pixel.V(float64(v.X), float64(v.Y))
-}
-
-// ProjectVec projects the vector by the UI's matrix (vertical flip)
-// 	and returns that as a imgui vector
-func ProjectVec(v pixel.Vec) imgui.Vec2 {
-	return IVec(currentUI.matrix.Project(v))
-}
-
-// ProjectV creates a pixel vector and projects it using ProjectVec
-func ProjectV(x, y float64) imgui.Vec2 {
-	return ProjectVec(pixel.V(x, y))
-}
-
-// UnprojectV unprojects the vector by the UI's matrix (vertical flip)
-// 	and returns that as a pixel vector
-func UnprojectV(v imgui.Vec2) pixel.Vec {
-	return currentUI.matrix.Unproject(PV(v))
-}
-
-// IZV returns an imgui zero vector
-func IZV() imgui.Vec2 {
-	return imgui.Vec2{X: 0, Y: 0}
 }
