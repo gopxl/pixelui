@@ -24,9 +24,12 @@ func (ui *UI) loadFont() {
 	}
 
 	ui.fontAtlas = ui.win.MakePicture(pic)
-	id, _ := ui.packer.Insert(pixel.NewSprite(pic, pic.Bounds()))
-	ui.fontId = id
-	ui.fonts.SetTextureID(imgui.TextureID(id))
+	id := "default-font"
+	if err := ui.packer.Replace(id, pixel.NewSprite(pic, pic.Bounds())); err != nil {
+		log.Fatalln(err)
+	}
+	ui.fontId = ui.packer.IdOf(id)
+	ui.fonts.SetTextureID(imgui.TextureID(ui.fontId))
 }
 
 // loadDefaultFont loads the imgui default font if the user wants it.

@@ -6,6 +6,19 @@ import (
 	"github.com/inkyblackness/imgui-go"
 )
 
+type Clipboard struct {
+	win *pixelgl.Window
+}
+
+func (c Clipboard) Text() (text string, err error) {
+	text = c.win.ClipboardText()
+	return
+}
+
+func (c Clipboard) SetText(value string) {
+	c.win.SetClipboardText(value)
+}
+
 // prepareIO tells imgui.io about our current io state.
 func (ui *UI) prepareIO() {
 	ui.io.SetDisplaySize(IVec(ui.win.Bounds().Size()))
@@ -31,7 +44,7 @@ func (ui *UI) prepareIO() {
 
 // updateKeyMod tells imgui.io where to find our key modifiers
 func (ui *UI) updateKeyMod() {
-	ui.io.KeyCtrl(int(pixelgl.KeyLeftAlt), int(pixelgl.KeyRightAlt))
+	ui.io.KeyCtrl(int(pixelgl.KeyLeftControl), int(pixelgl.KeyRightControl))
 	ui.io.KeyShift(int(pixelgl.KeyLeftShift), int(pixelgl.KeyRightShift))
 	ui.io.KeyAlt(int(pixelgl.KeyLeftAlt), int(pixelgl.KeyRightAlt))
 	ui.io.KeySuper(int(pixelgl.KeyLeftSuper), int(pixelgl.KeyRightSuper))
@@ -249,4 +262,6 @@ var keys = []pixelgl.Button{
 	pixelgl.KeyRightAlt,
 	pixelgl.KeyRightSuper,
 	pixelgl.KeyMenu,
+	pixelgl.KeyLeftControl,
+	pixelgl.KeyRightControl,
 }

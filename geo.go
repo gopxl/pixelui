@@ -28,7 +28,7 @@ func PV(v imgui.Vec2) pixel.Vec {
 // ProjectVec projects the vector by the UI's matrix (vertical flip)
 // 	and returns that as a imgui vector
 func ProjectVec(v pixel.Vec) imgui.Vec2 {
-	return IVec(currentUI.matrix.Project(v))
+	return IVec(CurrentUI.matrix.Project(v))
 }
 
 // ProjectV creates a pixel vector and projects it using ProjectVec
@@ -39,7 +39,7 @@ func ProjectV(x, y float64) imgui.Vec2 {
 // UnprojectV unprojects the vector by the UI's matrix (vertical flip)
 // 	and returns that as a pixel vector
 func UnprojectV(v imgui.Vec2) pixel.Vec {
-	return currentUI.matrix.Unproject(PV(v))
+	return CurrentUI.matrix.Unproject(PV(v))
 }
 
 // IZV returns an imgui zero vector

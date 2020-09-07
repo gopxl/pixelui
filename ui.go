@@ -56,11 +56,11 @@ type UI struct {
 	shader     *pixelgl.GLShader
 	matrix     pixel.Matrix
 	shaderTris *pixelgl.GLTriangles
-	packer     *packer.Packer
+	packer     *packer.AliasPacker
 	fontId     int
 }
 
-var currentUI *UI
+var CurrentUI *UI
 
 // pixelui.NewUI flags:
 //	NO_DEFAULT_FONT: Do not load the default font during NewUI.
@@ -79,14 +79,15 @@ func NewUI(win *pixelgl.Window, flags uint8) *UI {
 		win:     win,
 		context: context,
 	}
-	currentUI = ui
+	CurrentUI = ui
 
-	ui.packer = packer.NewPacker(4069, 4096, 0)
+	ui.packer = packer.NewAliasPacker(0, 0, packer.AllowGrowth)
 
 	ui.matrix = pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
 
 	ui.io = imgui.CurrentIO()
 	ui.io.SetDisplaySize(IVec(win.Bounds().Size()))
+	ui.io.SetClipboard(Clipboard{win: win})
 
 	ui.fonts = ui.io.Fonts()
 
@@ -102,7 +103,7 @@ func NewUI(win *pixelgl.Window, flags uint8) *UI {
 	return ui
 }
 
-func (ui UI) GetPacker() *packer.Packer {
+func (ui UI) GetPacker() *packer.AliasPacker {
 	return ui.packer
 }
 
@@ -174,7 +175,7 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				clipRect = clipRect.Norm()
 
 				id := int(cmd.TextureID())
-				texRect := ui.packer.BoundsOf(id)
+				texRect := ui.packer.BoundsOf(ui.packer.AliasOf(id))
 
 				intensity := 0.0
 				if id != ui.fontId {
@@ -208,7 +209,6 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 	win.MakePicture(ui.packer.Picture()).Draw(win.MakeTriangles(ui.shaderTris))
 
 	win.SetMatrix(pixel.IM)
-	// ui.packer.Draw(win, pixel.IM.Moved(ui.packer.Center()))
 }
 
 // recip returns the reciprocal of the given number.
