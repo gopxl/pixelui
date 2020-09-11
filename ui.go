@@ -33,12 +33,11 @@ uniform vec4 uClipRect;
 void main() {
 	if ((vClipRect != vec4(0,0,0,0)) && (gl_FragCoord.x < vClipRect.x || gl_FragCoord.y < vClipRect.y || gl_FragCoord.x > vClipRect.z || gl_FragCoord.y > vClipRect.w))
 		discard;
+	fragColor = vColor;
 	if (vIntensity == 0) {
 		fragColor *= vColor * texture(uTexture, vTexCoords).a;
 		fragColor *= uColorMask;
 	} else {
-		fragColor = vec4(0, 0, 0, 0);
-		fragColor += vColor;
 		fragColor *= vColor * texture(uTexture, vTexCoords);
 		fragColor *= uColorMask;
 	}
