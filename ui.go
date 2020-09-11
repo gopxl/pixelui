@@ -114,6 +114,9 @@ func (ui *UI) Destroy() {
 
 // NewFrame Call this at the beginning of the frame to tell the UI that the frame has started
 func (ui *UI) NewFrame() {
+	if !ui.timer.IsZero() {
+		ui.io.SetDeltaTime(float32(time.Since(ui.timer).Seconds()))
+	}
 	ui.timer = time.Now()
 
 	// imgui requires that io be set before calling NewFrame
@@ -124,7 +127,6 @@ func (ui *UI) NewFrame() {
 
 // update Handles general update type things and handle inputs. Called from ui.Draw.
 func (ui *UI) update() {
-	ui.io.SetDeltaTime(float32(time.Since(ui.timer).Seconds()))
 }
 
 // Draw Draws the imgui UI to the Pixel Window
