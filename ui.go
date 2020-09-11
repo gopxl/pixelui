@@ -165,8 +165,6 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				iStart := totalTris
 				totalTris += count
 
-				win.SetMatrix(ui.matrix)
-
 				if ui.shaderTris.Len() < totalTris {
 					ui.shaderTris.SetLen(totalTris)
 				}
