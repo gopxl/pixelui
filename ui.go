@@ -82,8 +82,6 @@ func NewUI(win *pixelgl.Window, flags uint8) *UI {
 
 	ui.packer = packer.NewAliasPacker(0, 0, packer.AllowGrowth)
 
-	ui.matrix = pixel.IM.ScaledXY(win.Bounds().Center(), pixel.V(1, -1))
-
 	ui.io = imgui.CurrentIO()
 	ui.io.SetDisplaySize(IVec(win.Bounds().Size()))
 	ui.io.SetClipboard(Clipboard{win: win})
@@ -128,8 +126,13 @@ func (ui *UI) NewFrame() {
 func (ui *UI) update() {
 }
 
+func (ui *UI) updateMatrix() {
+	ui.matrix = pixel.IM.ScaledXY(ui.win.Bounds().Center(), pixel.V(1, -1))
+}
+
 // Draw Draws the imgui UI to the Pixel Window
 func (ui *UI) Draw(win *pixelgl.Window) {
+	ui.updateMatrix()
 	win.SetComposeMethod(pixel.ComposeOver)
 	win.SetMatrix(ui.matrix)
 
