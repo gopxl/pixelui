@@ -41,8 +41,5 @@ func (ui *UI) loadDefaultFont() {
 // AddTTFFont loads the given font into imgui.
 func (ui *UI) AddTTFFont(path string, size float32) {
 	ui.fonts.AddFontFromFileTTF(path, size)
-	if err := ui.fonts.BuildWithFreeType(); err != nil {
-		log.Fatalln(err)
-	}
 	ui.loadFont()
 }
