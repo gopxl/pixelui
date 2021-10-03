@@ -1,8 +1,10 @@
 package pixelui
 
 import (
+	"fmt"
 	"image/color"
 	"log"
+	"os"
 	"unsafe"
 
 	"github.com/inkyblackness/imgui-go"
@@ -40,6 +42,9 @@ func (ui *UI) loadDefaultFont() {
 
 // AddTTFFont loads the given font into imgui.
 func (ui *UI) AddTTFFont(path string, size float32) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		panic(fmt.Sprintf("The font file: %s does not exist", path))
+	}
 	ui.fonts.AddFontFromFileTTF(path, size)
 	ui.loadFont()
 }
