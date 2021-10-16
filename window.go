@@ -11,19 +11,36 @@ import (
 type WindowFlags uint
 
 type window struct {
-	id      string
-	open    *bool
-	flags   WindowFlags
-	bounds  pixel.Rect
-	canvas  *pixelgl.Canvas
-	widgets []widget
+	id       string
+	open     *bool
+	flags    WindowFlags
+	bounds   pixel.Rect
+	canvas   *pixelgl.Canvas
+	widgets  []widget
+	sameLine bool
+	offset   pixel.Vec
 }
 
-func (w *window) push(wid widget) {
+func (w *window) push(wid widget) pixel.Vec {
 	w.widgets = append(w.widgets, wid)
+
+	var del pixel.Vec
+	if w.sameLine {
+		// TODO implement
+		w.sameLine = false
+	} else {
+		del.Y = -ui.font.LineHeight
+	}
+	w.offset = w.offset.Add(del)
+
+	return w.offset
 }
 
 func (w *window) draw(t pixel.Target) {
+	// if ui.imgBatch != nil {
+	// 	ui.imgBatch.Clear()
+	// }
+
 	w.canvas.Clear(pixel.Alpha(1))
 
 	ui.font.Clear()
@@ -35,8 +52,13 @@ func (w *window) draw(t pixel.Target) {
 		wid.Draw(w.canvas, pixel.V(0, w.bounds.H()-(float64(i+2)*ui.font.LineHeight)))
 	}
 
+	// if ui.imgBatch != nil {
+	// 	ui.imgBatch.Draw(w.canvas)
+	// }
+
 	w.widgets = w.widgets[:0]
 	w.canvas.Draw(t, pixel.IM.Moved(w.bounds.Center()))
+	w.offset = w.bounds.Min.Add(pixel.V(0, w.bounds.H()-ui.font.LineHeight))
 }
 
 func findWindow(id string) *window {
@@ -68,7 +90,7 @@ func BeginV(id string, open *bool, flags WindowFlags) bool {
 			id:      id,
 			open:    open,
 			flags:   flags,
-			bounds:  rect(0, 0, 100, 100),
+			bounds:  rect(0, 0, 500, 500),
 			widgets: make([]widget, 0),
 		}
 		ui.currentWin.canvas = pixelgl.NewCanvas(ui.currentWin.bounds)
@@ -94,7 +116,7 @@ func End() {
 		panic("No current window, did you call 'End' too many times?")
 	}
 
-	if ui.currentWin.bounds.Contains(ui.win.MousePosition()) && ui.win.Pressed(pixelgl.MouseButtonLeft) {
+	if mouseIn(ui.currentWin.bounds) && consumeHeld(pixelgl.MouseButtonLeft) {
 		ui.currentWin.bounds = ui.currentWin.bounds.Moved(ui.win.MousePosition().Sub(ui.win.MousePreviousPosition()))
 	}
 

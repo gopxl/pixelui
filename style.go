@@ -6,6 +6,10 @@ import (
 	"golang.org/x/image/colornames"
 )
 
+type marginStyle struct {
+	top, bottom, left, right float64
+}
+
 type windowStyle struct {
 	Background color.Color
 }
@@ -14,6 +18,7 @@ type buttonStyle struct {
 	Background color.Color
 	Hover      color.Color
 	Pressed    color.Color
+	margin     marginStyle
 }
 
 type textStyle struct {
@@ -33,8 +38,14 @@ var (
 		},
 		Button: buttonStyle{
 			Background: colornames.Salmon,
-			Hover:      colornames.Lightpink,
+			Hover:      colornames.Aquamarine,
 			Pressed:    colornames.Red,
+			margin: marginStyle{
+				top:    2,
+				bottom: 2,
+				left:   2,
+				right:  2,
+			},
 		},
 		Text: textStyle{
 			Color: color.Black,

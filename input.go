@@ -5,11 +5,33 @@ import (
 	"github.com/faiface/pixel/pixelgl"
 )
 
-func JustPressed(button pixelgl.Button) bool {
+var (
+	held     [pixelgl.KeyLast + 1]bool
+	pressed  [pixelgl.KeyLast + 1]bool
+	released [pixelgl.KeyLast + 1]bool
+)
+
+func consumeHeld(button pixelgl.Button) bool {
+	if held[button] {
+		held[button] = false
+		return true
+	}
 	return false
 }
 
-func JustReleased(button pixelgl.Button) bool {
+func consumePressed(button pixelgl.Button) bool {
+	if pressed[button] {
+		pressed[button] = false
+		return true
+	}
+	return false
+}
+
+func consumeReleased(button pixelgl.Button) bool {
+	if released[button] {
+		released[button] = false
+		return true
+	}
 	return false
 }
 
