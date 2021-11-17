@@ -59,6 +59,11 @@ func (ui *UI) inputWant(button pixelgl.Button) bool {
 	return ui.io.WantCaptureKeyboard()
 }
 
+// WantMouse returns whether the cursor is in the imgui window region
+func (ui *UI) WantMouse() bool {
+	return ui.io.WantCaptureMouse()
+}
+
 // MouseScroll returns the mouse scroll amount if imgui does not want the mouse
 //	(if mouse is not hovering an imgui element)
 func (ui *UI) MouseScroll() pixel.Vec {
@@ -74,12 +79,12 @@ func (ui *UI) JustPressed(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.JustPressed(button)
 }
 
-// JustPressed returns true if imgui hasn't handled the button and the button was just released
+// JustReleased returns true if imgui hasn't handled the button and the button was just released
 func (ui *UI) JustReleased(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.JustReleased(button)
 }
 
-// JustPressed returns true if imgui hasn't handled the button and the button is pressed
+// Pressed returns true if imgui hasn't handled the button and the button is pressed
 func (ui *UI) Pressed(button pixelgl.Button) bool {
 	return !ui.inputWant(button) && ui.win.Pressed(button)
 }
@@ -94,17 +99,17 @@ func (ui *UI) KeyCtrl() bool {
 	return ui.win.Pressed(pixelgl.KeyLeftControl) || ui.win.Pressed(pixelgl.KeyRightControl)
 }
 
-// KeyCtrl returns true if either left or right shift is pressed
+// KeyShift returns true if either left or right shift is pressed
 func (ui *UI) KeyShift() bool {
 	return ui.win.Pressed(pixelgl.KeyLeftShift) || ui.win.Pressed(pixelgl.KeyRightShift)
 }
 
-// KeyCtrl returns true if either left or right alt is pressed
+// KeyAlt returns true if either left or right alt is pressed
 func (ui *UI) KeyAlt() bool {
 	return ui.win.Pressed(pixelgl.KeyLeftAlt) || ui.win.Pressed(pixelgl.KeyRightAlt)
 }
 
-// KeyCtrl returns true if either left or right super (windows key) is pressed
+// KeySuper returns true if either left or right super (windows key) is pressed
 func (ui *UI) KeySuper() bool {
 	return ui.win.Pressed(pixelgl.KeyLeftSuper) || ui.win.Pressed(pixelgl.KeyRightSuper)
 }
