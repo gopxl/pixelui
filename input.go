@@ -3,7 +3,7 @@ package pixelui
 import (
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
-	"github.com/inkyblackness/imgui-go"
+	"github.com/inkyblackness/imgui-go/v4"
 )
 
 type Clipboard struct {

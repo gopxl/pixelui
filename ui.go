@@ -4,7 +4,7 @@ import (
 	"C"
 
 	"github.com/faiface/pixel"
-	"github.com/inkyblackness/imgui-go"
+	"github.com/inkyblackness/imgui-go/v4"
 )
 import (
 	"image/color"
@@ -55,7 +55,8 @@ type UI struct {
 	shader     *pixelgl.GLShader
 	matrix     pixel.Matrix
 	shaderTris *pixelgl.GLTriangles
-	packer     *packer.AliasPacker
+	packer     *packer.Packer
+	lastID     int32
 	fontId     int
 }
 
@@ -80,7 +81,7 @@ func NewUI(win *pixelgl.Window, flags uint8) *UI {
 	}
 	CurrentUI = ui
 
-	ui.packer = packer.NewAliasPacker(0, 0, packer.AllowGrowth)
+	ui.packer = packer.New()
 
 	ui.io = imgui.CurrentIO()
 	ui.io.SetDisplaySize(IVec(win.Bounds().Size()))
@@ -100,7 +101,7 @@ func NewUI(win *pixelgl.Window, flags uint8) *UI {
 	return ui
 }
 
-func (ui UI) GetPacker() *packer.AliasPacker {
+func (ui UI) GetPacker() *packer.Packer {
 	return ui.packer
 }
 
@@ -177,7 +178,7 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				clipRect = clipRect.Norm()
 
 				id := int(cmd.TextureID())
-				texRect := ui.packer.BoundsOf(ui.packer.AliasOf(id))
+				texRect := ui.packer.BoundsOf(id)
 
 				intensity := 0.0
 				if id != ui.fontId {

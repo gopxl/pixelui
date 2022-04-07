@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"unsafe"
 
-	"github.com/dusk125/pixelutils/packer"
-	"github.com/inkyblackness/imgui-go"
+	"github.com/inkyblackness/imgui-go/v4"
 
 	"github.com/faiface/pixel"
 )
@@ -32,11 +32,24 @@ func Sprite(sprite *pixel.Sprite) imgui.TextureID {
 	}))
 }
 
+func (ui *UI) nextID() int {
+	return int(atomic.AddInt32(&ui.lastID, 1))
+}
+
 func (ui *UI) AddSprite(name string, sprite *pixel.Sprite) imgui.TextureID {
-	if err := ui.packer.InsertV(name, sprite, packer.InsertFlipped); err != nil {
-		log.Fatalln(err)
+	pic := sprite.Picture().(*pixel.PictureData)
+	frame := sprite.Frame()
+	newPic := pixel.MakePictureData(pixel.R(0, 0, frame.W(), frame.H()))
+	i := 0
+	for y := frame.Min.Y; y < frame.Max.Y; y++ {
+		for x := frame.Min.X; x < frame.Max.X; x++ {
+			newPic.Pix[i] = pic.Pix[pic.Index(pixel.V(float64(x), float64(y)))]
+			i++
+		}
 	}
-	return imgui.TextureID(ui.packer.IdOf(name))
+	id := ui.nextID()
+	ui.packer.Insert(id, newPic.Image())
+	return imgui.TextureID(id)
 }
 
 func (ui *UI) AddSpriteFromFile(path string) (id imgui.TextureID, sprite *pixel.Sprite) {

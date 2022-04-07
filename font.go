@@ -3,11 +3,10 @@ package pixelui
 import (
 	"fmt"
 	"image/color"
-	"log"
 	"os"
 	"unsafe"
 
-	"github.com/inkyblackness/imgui-go"
+	"github.com/inkyblackness/imgui-go/v4"
 
 	"github.com/faiface/pixel"
 )
@@ -26,12 +25,12 @@ func (ui *UI) loadFont() {
 	}
 
 	ui.fontAtlas = ui.win.MakePicture(pic)
-	id := "default-font"
-	if err := ui.packer.Replace(id, pixel.NewSprite(pic, pic.Bounds())); err != nil {
-		log.Fatalln(err)
-	}
-	ui.fontId = ui.packer.IdOf(id)
-	ui.fonts.SetTextureID(imgui.TextureID(ui.fontId))
+
+	data := pixel.NewSprite(pic, pic.Bounds()).Picture().(*pixel.PictureData).Image()
+	id := ui.nextID()
+	ui.fontId = id
+	ui.packer.Insert(id, data)
+	ui.fonts.SetTextureID(imgui.TextureID(id))
 }
 
 // loadDefaultFont loads the imgui default font if the user wants it.

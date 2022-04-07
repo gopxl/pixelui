@@ -2,7 +2,7 @@ package pixelui
 
 import (
 	"github.com/faiface/pixel"
-	"github.com/inkyblackness/imgui-go"
+	"github.com/inkyblackness/imgui-go/v4"
 )
 
 // imguiRectToPixelRect Converts the imgui rect to a Pixel rect
