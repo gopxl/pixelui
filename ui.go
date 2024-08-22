@@ -3,17 +3,18 @@ package pixelui
 import (
 	"C"
 
-	"github.com/faiface/pixel"
-	"github.com/inkyblackness/imgui-go"
+	"github.com/gopxl/pixel/v2"
+	"github.com/inkyblackness/imgui-go/v4"
 )
 import (
 	"image/color"
+	"runtime"
 	"time"
 	"unsafe"
 
-	"github.com/dusk125/pixelutils/packer"
-	"github.com/faiface/mainthread"
-	"github.com/faiface/pixel/pixelgl"
+	"github.com/gopxl/mainthread/v2"
+	"github.com/gopxl/pixel/v2/backends/opengl"
+	"github.com/gopxl/pixel/v2/ext/atlas"
 )
 
 const uiShader = `
@@ -46,29 +47,31 @@ void main() {
 
 // UI Stores the state of the pixelui UI
 type UI struct {
-	win        *pixelgl.Window
+	win        *opengl.Window
 	context    *imgui.Context
 	io         imgui.IO
 	fonts      imgui.FontAtlas
 	timer      time.Time
-	fontAtlas  pixel.TargetPicture
-	shader     *pixelgl.GLShader
+	shader     *opengl.GLShader
 	matrix     pixel.Matrix
-	shaderTris *pixelgl.GLTriangles
-	packer     *packer.AliasPacker
-	fontId     int
+	shaderTris *opengl.GLTriangles
+	atlas      *atlas.Atlas
+	group      atlas.Group
+	font       atlas.TextureId
+	cursors    map[imgui.MouseCursorID]*opengl.Cursor
 }
 
 var CurrentUI *UI
 
 // pixelui.NewUI flags:
-//	NO_DEFAULT_FONT: Do not load the default font during NewUI.
+//
+//	NO_DEFAULT_FONT: Do not load the default font during New.
 const (
 	NO_DEFAULT_FONT uint8 = 1 << iota
 )
 
-// NewUI Creates the UI and setups up its internal structures
-func NewUI(win *pixelgl.Window, flags uint8) *UI {
+// New Creates the UI and setups up its internal structures
+func New(win *opengl.Window, atlas *atlas.Atlas, flags uint8) *UI {
 	var context *imgui.Context
 	mainthread.Call(func() {
 		context = imgui.CreateContext(nil)
@@ -77,35 +80,32 @@ func NewUI(win *pixelgl.Window, flags uint8) *UI {
 	ui := &UI{
 		win:     win,
 		context: context,
+		atlas:   atlas,
+		group:   atlas.MakeGroup(),
+		cursors: make(map[imgui.MouseCursorID]*opengl.Cursor),
 	}
 	CurrentUI = ui
 
-	ui.packer = packer.NewAliasPacker(0, 0, packer.AllowGrowth)
-
 	ui.io = imgui.CurrentIO()
-	ui.io.SetDisplaySize(IVec(win.Bounds().Size()))
-	ui.io.SetClipboard(Clipboard{win: win})
+	ui.initIO()
 
 	ui.fonts = ui.io.Fonts()
 
-	ui.shader = pixelgl.NewGLShader(uiShader)
+	ui.shader = opengl.NewGLShader(uiShader)
 
-	ui.shaderTris = pixelgl.NewGLTriangles(ui.shader, pixel.MakeTrianglesData(0))
+	ui.shaderTris = opengl.NewGLTriangles(ui.shader, pixel.MakeTrianglesData(0))
 
 	if flags&NO_DEFAULT_FONT == 0 {
 		ui.loadDefaultFont()
 	}
-	ui.setKeyMapping()
+
+	runtime.SetFinalizer(ui, (*UI).destroy)
 
 	return ui
 }
 
-func (ui UI) GetPacker() *packer.AliasPacker {
-	return ui.packer
-}
-
 // Destroy cleans up the imgui context
-func (ui *UI) Destroy() {
+func (ui *UI) destroy() {
 	ui.context.Destroy()
 }
 
@@ -131,7 +131,7 @@ func (ui *UI) updateMatrix() {
 }
 
 // Draw Draws the imgui UI to the Pixel Window
-func (ui *UI) Draw(win *pixelgl.Window) {
+func (ui *UI) Draw(win *opengl.Window) {
 	ui.updateMatrix()
 	win.SetComposeMethod(pixel.ComposeOver)
 	win.SetMatrix(ui.matrix)
@@ -176,11 +176,12 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 				clipRect.Max = ui.matrix.Project(clipRect.Max)
 				clipRect = clipRect.Norm()
 
-				id := int(cmd.TextureID())
-				texRect := ui.packer.BoundsOf(ui.packer.AliasOf(id))
+				id := uint32(cmd.TextureID())
+				spr := ui.atlas.Get(id)
+				texRect := spr.Frame()
 
 				intensity := 0.0
-				if id != ui.fontId {
+				if id != ui.font.ID() {
 					intensity = 1.0
 				}
 
@@ -188,13 +189,13 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 					idx := unsafe.Pointer(uintptr(idxStart) + indexBufferOffset)
 					index := *(*uint16)(idx)
 					ptr := unsafe.Pointer(uintptr(start) + (uintptr(int(index) * vertexSize)))
-					pos := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
-					uv := (*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(uvOffset)))
-					col := (*uint32)(unsafe.Pointer(uintptr(ptr) + uintptr(colOffset)))
+					pos := *(*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(posOffset)))
+					uv := *(*imgui.Vec2)(unsafe.Pointer(uintptr(ptr) + uintptr(uvOffset)))
+					col := *(*uint32)(unsafe.Pointer(uintptr(ptr) + uintptr(colOffset)))
 
-					position := PV(*pos)
-					color := imguiColorToPixelColor(*col)
-					uuvv := ui.calcData(texRect, PV(*uv))
+					position := PV(pos)
+					color := imguiColorToPixelColor(col)
+					uuvv := ui.calcData(texRect, PV(uv))
 
 					ui.shaderTris.SetPosition(iStart+i, position)
 					ui.shaderTris.SetPicture(iStart+i, uuvv, intensity)
@@ -208,7 +209,7 @@ func (ui *UI) Draw(win *pixelgl.Window) {
 
 	ui.shaderTris.SetLen(totalTris)
 	ui.shaderTris.CopyVertices()
-	win.MakePicture(ui.packer.Picture()).Draw(win.MakeTriangles(ui.shaderTris))
+	win.MakePicture(ui.atlas.Textures()[0]).Draw(win.MakeTriangles(ui.shaderTris))
 
 	win.SetMatrix(pixel.IM)
 }
@@ -220,7 +221,7 @@ func recip(m float64) float64 {
 
 // calcData scales the incoming sprite uv to the proper sub-sprite in the packed atlas.
 func (ui *UI) calcData(frame pixel.Rect, uuvv pixel.Vec) (pic pixel.Vec) {
-	return uuvv.ScaledXY(frame.Size()).Add(frame.Min).ScaledXY(ui.packer.Bounds().Size().Map(recip))
+	return uuvv.ScaledXY(frame.Size()).Add(frame.Min).ScaledXY(ui.atlas.Textures()[0].Bounds().Size().Map(recip))
 }
 
 // imguiColorToPixelColor Converts the imgui color to a Pixel color.

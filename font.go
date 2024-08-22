@@ -2,36 +2,31 @@ package pixelui
 
 import (
 	"fmt"
+	"image"
 	"image/color"
-	"log"
 	"os"
 	"unsafe"
 
-	"github.com/inkyblackness/imgui-go"
-
-	"github.com/faiface/pixel"
+	"github.com/inkyblackness/imgui-go/v4"
 )
 
 // loadFont parses the imgui font data and creates a pixel picture from it.
 func (ui *UI) loadFont() {
 	f := ui.fonts.TextureDataAlpha8()
-	pic := pixel.MakePictureData(pixel.R(0, 0, float64(f.Width), float64(f.Height)))
+	pic := image.NewRGBA(image.Rect(0, 0, f.Width, f.Height))
 
 	for y := 0; y < f.Height; y++ {
 		for x := 0; x < f.Width; x++ {
 			i := y*f.Width + x
 			ptr := (*uint8)(unsafe.Pointer(uintptr(f.Pixels) + uintptr(i)))
-			pic.Pix[i] = color.RGBA{R: 0, G: 0, B: 0, A: *ptr}
+			pic.SetRGBA(x, y, color.RGBA{0, 0, 0, *ptr})
 		}
 	}
 
-	ui.fontAtlas = ui.win.MakePicture(pic)
-	id := "default-font"
-	if err := ui.packer.Replace(id, pixel.NewSprite(pic, pic.Bounds())); err != nil {
-		log.Fatalln(err)
-	}
-	ui.fontId = ui.packer.IdOf(id)
-	ui.fonts.SetTextureID(imgui.TextureID(ui.fontId))
+	ui.atlas.Clear(ui.group)
+	ui.font = ui.group.AddImage(pic)
+	ui.atlas.Pack()
+	ui.fonts.SetTextureID(imgui.TextureID(ui.font.ID()))
 }
 
 // loadDefaultFont loads the imgui default font if the user wants it.

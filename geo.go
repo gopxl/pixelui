@@ -1,8 +1,8 @@
 package pixelui
 
 import (
-	"github.com/faiface/pixel"
-	"github.com/inkyblackness/imgui-go"
+	"github.com/gopxl/pixel/v2"
+	"github.com/inkyblackness/imgui-go/v4"
 )
 
 // imguiRectToPixelRect Converts the imgui rect to a Pixel rect
@@ -26,7 +26,8 @@ func PV(v imgui.Vec2) pixel.Vec {
 }
 
 // ProjectVec projects the vector by the UI's matrix (vertical flip)
-// 	and returns that as a imgui vector
+//
+//	and returns that as a imgui vector
 func ProjectVec(v pixel.Vec) imgui.Vec2 {
 	return IVec(CurrentUI.matrix.Project(v))
 }
@@ -37,7 +38,8 @@ func ProjectV(x, y float64) imgui.Vec2 {
 }
 
 // UnprojectV unprojects the vector by the UI's matrix (vertical flip)
-// 	and returns that as a pixel vector
+//
+//	and returns that as a pixel vector
 func UnprojectV(v imgui.Vec2) pixel.Vec {
 	return CurrentUI.matrix.Unproject(PV(v))
 }
