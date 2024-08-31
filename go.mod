@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/gopxl/mainthread/v2 v2.1.1
-	github.com/gopxl/pixel/v2 v2.2.1-0.20240821160809-8ed417f54c57
+	github.com/gopxl/pixel/v2 v2.3.0
 	github.com/inkyblackness/imgui-go/v4 v4.7.0
 )
 
